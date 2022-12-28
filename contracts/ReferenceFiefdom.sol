@@ -18,11 +18,11 @@ interface IBaseContract {
 contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
   using Strings for uint256;
 
-  string public license = 'CC BY-NC 4.0';
+  string public license;
 
   TokenURI private _tokenURIContract;
-  uint256 private _totalSupply = 1;
-  uint256 private _maxSupply = 1;
+  uint256 private _totalSupply;
+  uint256 private _maxSupply;
   string private _name;
   string private _symbol;
   bool private _initialized;
@@ -32,7 +32,7 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
 
   address private minter;
   address private royaltyBeneficiary;
-  uint16 private royaltyBasisPoints = 1000;
+  uint16 private royaltyBasisPoints;
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
@@ -52,6 +52,7 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
     overlord = IBaseContract(_overlord);
     fiefdom = _fiefdomTokenId;
 
+    _totalSupply = 1;
     _mint(address(this), 0);
   }
 
@@ -70,10 +71,13 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
     // Set the defailt minter address + ERC2981 royalty beneficiary
     minter = msg.sender;
     royaltyBeneficiary = msg.sender;
+    royaltyBasisPoints = 1000;
 
     // Create a default TokenURI contract that points to a baseURI
     _tokenURIContract = new TokenURI(baseURI_);
     _initialized = true;
+
+    license = 'CC BY-NC 4.0';
 
     // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
