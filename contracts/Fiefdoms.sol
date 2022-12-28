@@ -22,7 +22,7 @@ contract Fiefdoms is ERC721, Ownable {
   address private royaltyBenificiary;
   uint16 private royaltyBasisPoints = 1000;
 
-  address public refContract;
+  address public referenceContract;
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
@@ -36,10 +36,13 @@ contract Fiefdoms is ERC721, Ownable {
     royaltyBenificiary = msg.sender;
     _tokenURIContract = new TokenURI('ipfs//....');
 
-    refContract = address(new ReferenceERC721());
+    // Publish a reference contract. All proxy contracts will derive its functionality from this
+    referenceContract = address(new ReferenceERC721());
+
+    // Token 0 will use the reference contract directly instead of a proxy
     _mint(msg.sender, 0);
 
-    tokenIdToAddress[0] = refContract;
+    tokenIdToAddress[0] = referenceContract;
   }
 
 
@@ -57,6 +60,7 @@ contract Fiefdoms is ERC721, Ownable {
 
     _mint(to, _totalSupply);
 
+    // Publish a new proxy contract for this token
     ProxyERC721 proxy = new ProxyERC721();
     tokenIdToAddress[_totalSupply] = address(proxy);
 
@@ -80,16 +84,22 @@ contract Fiefdoms is ERC721, Ownable {
     address to,
     uint256 tokenId
   ) internal virtual override {
+    // When this token is transferred, also transfer ownership over its fiefdom
     ReferenceERC721(tokenIdToAddress[tokenId]).transferOwnership(from, to);
     return super._transfer(from, to, tokenId);
   }
 
+  // ROYALTIES
+
+
+  // Fiefdoms may collect their own royalties withotu restriction, but must follow the rules of the broader kingdom
   function getApproved(uint256 tokenId) public view virtual override returns (address) {
     address operator = super.getApproved(tokenId);
     if (useAllowList) require(allowList[operator], 'Operator must be on Allow List');
     return operator;
   }
 
+  // Fiefdoms may collect their own royalties withotu restriction, but must follow the rules of the broader kingdom
   function isApprovedForAll(address owner, address operator) public view virtual override returns (bool) {
     if (useAllowList) require(allowList[operator], 'Operator must be on Allow List');
     return super.isApprovedForAll(owner, operator);
@@ -102,6 +112,37 @@ contract Fiefdoms is ERC721, Ownable {
 
   function updateAllowList(address operator, bool isALed) external onlyOwner {
     allowList[operator] = isALed;
+  }
+
+  function setRoyaltyInfo(
+    address _royaltyBenificiary,
+    uint16 _royaltyBasisPoints
+  ) external onlyOwner {
+    royaltyBenificiary = _royaltyBenificiary;
+    royaltyBasisPoints = _royaltyBasisPoints;
+  }
+
+  function royaltyInfo(uint256, uint256 _salePrice) external view returns (address, uint256) {
+    return (royaltyBenificiary, _salePrice * royaltyBasisPoints / 10000);
+  }
+
+  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721) returns (bool) {
+    // ERC2981 & ERC4906
+    return interfaceId == bytes4(0x2a55205a) || interfaceId == bytes4(0x49064906) || super.supportsInterface(interfaceId);
+  }
+
+
+  // Token URI
+  function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    return _tokenURIContract.tokenURI(tokenId);
+  }
+
+  function setTokenURIContract(address _tokenURIAddress) external onlyOwner {
+    _tokenURIContract = TokenURI(_tokenURIAddress);
+  }
+
+  function tokenURIContract() external view returns (address) {
+    return address(_tokenURIContract);
   }
 
 
@@ -119,42 +160,9 @@ contract Fiefdoms is ERC721, Ownable {
   }
 
 
-
-  // Token URI
-  function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-    return _tokenURIContract.tokenURI(tokenId);
-  }
-
-  function setTokenURIContract(address _tokenURIAddress) external onlyOwner {
-    _tokenURIContract = TokenURI(_tokenURIAddress);
-  }
-
-  function tokenURIContract() external view returns (address) {
-    return address(_tokenURIContract);
-  }
-
-
   // Contract owner actions
   function updateLicense(string calldata newLicense) external onlyOwner {
     license = newLicense;
-  }
-
-  // Royalty Info
-  function setRoyaltyInfo(
-    address _royaltyBenificiary,
-    uint16 _royaltyBasisPoints
-  ) external onlyOwner {
-    royaltyBenificiary = _royaltyBenificiary;
-    royaltyBasisPoints = _royaltyBasisPoints;
-  }
-
-  function royaltyInfo(uint256, uint256 _salePrice) external view returns (address, uint256) {
-    return (royaltyBenificiary, _salePrice * royaltyBasisPoints / 10000);
-  }
-
-  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721) returns (bool) {
-    // ERC2981 & ERC4906
-    return interfaceId == bytes4(0x2a55205a) || interfaceId == bytes4(0x49064906) || super.supportsInterface(interfaceId);
   }
 }
 

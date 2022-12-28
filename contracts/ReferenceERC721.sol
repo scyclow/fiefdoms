@@ -25,8 +25,8 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
   string private _symbol;
   bool private _initialized;
 
-  uint256 public parentTokenId;
-  IBaseContract public parent;
+  uint256 public fiefdom;
+  IBaseContract public overlord;
 
   address private minter;
   address private royaltyBenificiary;
@@ -35,26 +35,41 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
 
+  // This is only called when the reference contract is published
   constructor() {
     preInitialize(msg.sender, 0);
   }
 
-  function preInitialize(address _parent, uint256 _parentTokenId) public initializer {
-    parent = IBaseContract(_parent);
-    parentTokenId = _parentTokenId;
+  // This is called by the proxy contract when *it* is published
+  // Mints token 0 and does not set a name/symbol
+  function preInitialize(address _overlord, uint256 _fiefdomTokenId) public initializer {
+    overlord = IBaseContract(_overlord);
+    fiefdom = _fiefdomTokenId;
 
     _mint(address(this), 0);
   }
 
+  // Instantiates the project beyond the 0th mint
   function initialize(string memory name_, string memory symbol_, uint256 maxSupply_, string memory baseURI_) external onlyOwner {
+    // Require that it can only be called once
     require(!_initialized);
+
+    // Set the name/symbol
     _name = name_;
     _symbol = symbol_;
+
+    // Set the max token supply
     _maxSupply = maxSupply_;
+
+    // Set the defailt minter address + ERC2981 royalty beneficiary
     minter = msg.sender;
     royaltyBenificiary = msg.sender;
+
+    // Create a default TokenURI contract that points to a baseURI
     _tokenURIContract = new TokenURI(baseURI_);
     _initialized = true;
+
+    // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
 
   }
@@ -62,8 +77,9 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
   // OWNERSHIP
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
+  // The owner of this contract is the owner of the corresponding fiefdom token
   function owner() public view virtual returns (address) {
-    return parent.ownerOf(parentTokenId);
+    return overlord.ownerOf(fiefdom);
   }
 
   modifier onlyOwner() {
@@ -71,8 +87,9 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
     _;
   }
 
+  // This is called by the Fiefdoms contract whenever the corresponding fiefdom token is traded
   function transferOwnership(address previousOwner, address newOwner) external {
-    require(msg.sender == address(parent));
+    require(msg.sender == address(overlord));
     emit OwnershipTransferred(previousOwner, newOwner);
   }
 
