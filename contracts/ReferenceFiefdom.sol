@@ -15,7 +15,9 @@ interface IBaseContract {
 
 // TODO on initialize, add optional: mint hook, transfer hook, approval hook, transfer override, approval override
 
-contract ReferenceERC721 is Initializable, ERC721Upgradeable {
+contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
+  using Strings for uint256;
+
   string public license = 'CC BY-NC 4.0';
 
   TokenURI private _tokenURIContract;
@@ -29,7 +31,7 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
   IBaseContract public overlord;
 
   address private minter;
-  address private royaltyBenificiary;
+  address private royaltyBeneficiary;
   uint16 private royaltyBasisPoints = 1000;
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
@@ -43,6 +45,10 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
   // This is called by the proxy contract when *it* is published
   // Mints token 0 and does not set a name/symbol
   function preInitialize(address _overlord, uint256 _fiefdomTokenId) public initializer {
+    __ERC721_init(
+      string(abi.encodePacked('Fiefdom ', _fiefdomTokenId.toString())),
+      string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()))
+    );
     overlord = IBaseContract(_overlord);
     fiefdom = _fiefdomTokenId;
 
@@ -63,7 +69,7 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
 
     // Set the defailt minter address + ERC2981 royalty beneficiary
     minter = msg.sender;
-    royaltyBenificiary = msg.sender;
+    royaltyBeneficiary = msg.sender;
 
     // Create a default TokenURI contract that points to a baseURI
     _tokenURIContract = new TokenURI(baseURI_);
@@ -174,12 +180,16 @@ contract ReferenceERC721 is Initializable, ERC721Upgradeable {
     address _royaltyBenificiary,
     uint16 _royaltyBasisPoints
   ) external onlyOwner {
-    royaltyBenificiary = _royaltyBenificiary;
+    royaltyBeneficiary = _royaltyBenificiary;
     royaltyBasisPoints = _royaltyBasisPoints;
   }
 
+  function setMinter(address newMinter) external onlyOwner {
+    minter = newMinter;
+  }
+
   function royaltyInfo(uint256, uint256 _salePrice) external view returns (address, uint256) {
-    return (royaltyBenificiary, _salePrice * royaltyBasisPoints / 10000);
+    return (royaltyBeneficiary, _salePrice * royaltyBasisPoints / 10000);
   }
 
   function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721Upgradeable) returns (bool) {

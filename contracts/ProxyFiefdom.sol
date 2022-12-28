@@ -10,7 +10,7 @@ interface IParent {
   function totalSupply() external view returns (uint256);
   function referenceContract() external view returns (address);
 }
-contract ProxyERC721 is Proxy {
+contract ProxyFiefdom is Proxy {
   bytes32 internal constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
   struct AddressSlot {
