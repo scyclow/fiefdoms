@@ -5,7 +5,6 @@ pragma solidity ^0.8.11;
 import "./Dependencies.sol";
 
 interface IERC721Hooks {
-    function _setParent() external;
     function _beforeTransfer(address from, address to, uint256 tokenId) external;
     function _beforeMint(address to, uint256 tokenId) external;
     function _beforeBurn(address from, uint256 tokenId) external;
@@ -16,9 +15,8 @@ interface IERC721Hooks {
 contract ERC721HooksBase is IERC721Hooks {
     address public parent;
 
-    function _setParent() external {
-        require(parent == address(0), "Parent ERC721 can only be set upon creation");
-        parent = msg.sender;
+    constructor(address _parent) {
+        parent = _parent;
     }
 
     modifier onlyParent() {

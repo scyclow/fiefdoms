@@ -2,6 +2,7 @@
 
 
 
+import "./DefaultTokenURI.sol";
 import "./BaseTokenURI.sol";
 import "./ERC721Hooks.sol";
 import "./Dependencies.sol";
@@ -12,10 +13,6 @@ pragma solidity ^0.8.11;
 interface IBaseContract {
   function ownerOf(uint256 tokenId) external view returns (address owner);
   function defaultTokenURIContract() external view returns (address tokenURIContract);
-}
-
-interface ITokenURI {
-  function tokenURI(uint256 tokenId) external view returns (string memory uri);
 }
 
 contract ReferenceFiefdom is Initializable, ERC721 {
@@ -96,15 +93,10 @@ contract ReferenceFiefdom is Initializable, ERC721 {
     string memory symbol_,
     uint256 maxSupply_,
     address tokenURIContract_,
-    bytes memory hooksContractBytecode
+    address _erc721Hooks
   ) public onlyOwner {
     activate(name_, symbol_, maxSupply_, tokenURIContract_);
-    address _erc721Hooks;
-    assembly {
-      _erc721Hooks := create(0, add(hooksContractBytecode, 0x20), mload(hooksContractBytecode))
-    }
     erc721Hooks = IERC721Hooks(_erc721Hooks);
-    erc721Hooks._setParent();
   }
 
 
