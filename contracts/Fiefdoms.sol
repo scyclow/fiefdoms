@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 import "./Dependencies.sol";
-import "./TokenURI.sol";
+import "./BaseTokenURI.sol";
+import "./DefaultTokenURI.sol";
 import "./ProxyFiefdom.sol";
 import "./ReferenceFiefdom.sol";
 
@@ -12,29 +13,31 @@ contract Fiefdoms is ERC721, Ownable {
   string public license = 'CC BY-NC 4.0';
 
   mapping(uint256 => address) public tokenIdToFiefdom;
+  mapping(address => bool) public allowList;
 
-  TokenURI private _tokenURIContract;
-  uint256 private _totalSupply = 1;
-
-  uint256 private _parentTokenId;
-
-  address private minter;
-  address private royaltyBeneficiary;
-  uint16 private royaltyBasisPoints = 1000;
-
+  address public minter;
   address public referenceContract;
+  address public defaultTokenURIContract;
+
+  BaseTokenURI private _tokenURIContract;
+
+  uint256 private _totalSupply = 1;
+  address private _royaltyBeneficiary;
+  uint16 private _royaltyBasisPoints = 1000;
+
+  bool public useAllowList = true;
+
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
 
-  bool public useAllowList = true;
-  mapping(address => bool) public allowList;
 
   // SETUP
   constructor() ERC721('Fiefdoms', 'FIEF') {
     minter = msg.sender;
-    royaltyBeneficiary = msg.sender;
-    _tokenURIContract = new TokenURI('ipfs//....');
+    _royaltyBeneficiary = msg.sender;
+    _tokenURIContract = new BaseTokenURI();
+    defaultTokenURIContract = address(new DefaultTokenURI());
 
     // Publish a reference contract. All proxy contracts will derive its functionality from this
     referenceContract = address(new ReferenceFiefdom());
@@ -116,15 +119,15 @@ contract Fiefdoms is ERC721, Ownable {
   }
 
   function setRoyaltyInfo(
-    address _royaltyBenificiary,
-    uint16 _royaltyBasisPoints
+    address royaltyBenificiary_,
+    uint16 royaltyBasisPoints_
   ) external onlyOwner {
-    royaltyBeneficiary = _royaltyBenificiary;
-    royaltyBasisPoints = _royaltyBasisPoints;
+    _royaltyBeneficiary = royaltyBenificiary_;
+    _royaltyBasisPoints = royaltyBasisPoints_;
   }
 
   function royaltyInfo(uint256, uint256 _salePrice) external view returns (address, uint256) {
-    return (royaltyBeneficiary, _salePrice * royaltyBasisPoints / 10000);
+    return (_royaltyBeneficiary, _salePrice * _royaltyBasisPoints / 10000);
   }
 
   function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721) returns (bool) {
@@ -139,7 +142,11 @@ contract Fiefdoms is ERC721, Ownable {
   }
 
   function setTokenURIContract(address _tokenURIAddress) external onlyOwner {
-    _tokenURIContract = TokenURI(_tokenURIAddress);
+    _tokenURIContract = BaseTokenURI(_tokenURIAddress);
+  }
+
+  function setDefaultTokenURIContract(address newDefault) external onlyOwner {
+    defaultTokenURIContract = newDefault;
   }
 
   function tokenURIContract() external view returns (address) {

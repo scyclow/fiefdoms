@@ -3,34 +3,35 @@
 
 
 import "./UpgradeableDependencies.sol";
-import "./TokenURI.sol";
+import "./Dependencies.sol";
 
 
 pragma solidity ^0.8.11;
 
 interface IBaseContract {
-  function ownerOf(uint256) external view returns (address);
+  function ownerOf(uint256 tokenId) external view returns (address owner);
+  function defaultTokenURIContract() external view returns (address tokenURIContract);
 }
 
-
-// TODO on initialize, add optional: mint hook, transfer hook, approval hook, transfer override, approval override
+interface ITokenURI {
+  function tokenURI(uint256 tokenId) external view returns (string memory uri);
+}
 
 contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
   using Strings for uint256;
 
   string public license;
+  address public minter;
+  uint256 public fiefdom;
+  IBaseContract public overlord;
+  address public tokenURIContract;
+  bool public isActivated;
 
-  TokenURI private _tokenURIContract;
   uint256 private _totalSupply;
   uint256 private _maxSupply;
   string private _name;
   string private _symbol;
-  bool private _initialized;
 
-  uint256 public fiefdom;
-  IBaseContract public overlord;
-
-  address private minter;
   address private royaltyBeneficiary;
   uint16 private royaltyBasisPoints;
 
@@ -39,12 +40,12 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
 
   // This is only called when the reference contract is published
   constructor() {
-    preInitialize(msg.sender, 0);
+    initialize(msg.sender, 0);
   }
 
   // This is called by the proxy contract when *it* is published
   // Mints token 0 and does not set a name/symbol
-  function preInitialize(address _overlord, uint256 _fiefdomTokenId) public initializer {
+  function initialize(address _overlord, uint256 _fiefdomTokenId) public initializer {
     __ERC721_init(
       string(abi.encodePacked('Fiefdom ', _fiefdomTokenId.toString())),
       string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()))
@@ -57,9 +58,14 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
   }
 
   // Instantiates the project beyond the 0th mint
-  function initialize(string memory name_, string memory symbol_, uint256 maxSupply_, string memory baseURI_) external onlyOwner {
+  function activate(
+    string memory name_,
+    string memory symbol_,
+    uint256 maxSupply_,
+    address tokenURIContract_,
+  ) external onlyOwner {
     // Require that it can only be called once
-    require(!_initialized);
+    require(!isActivated);
 
     // Set the name/symbol
     _name = name_;
@@ -74,8 +80,9 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
     royaltyBasisPoints = 1000;
 
     // Create a default TokenURI contract that points to a baseURI
-    _tokenURIContract = new TokenURI(baseURI_);
-    _initialized = true;
+
+    tokenURIContract = tokenURIContract_;
+    isActivated = true;
 
     license = 'CC BY-NC 4.0';
 
@@ -162,17 +169,16 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
 
   // Token URI
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-    return _tokenURIContract.tokenURI(tokenId);
+    address addr = tokenURIContract == address(0)
+      ? overlord.defaultTokenURIContract()
+      : tokenURIContract;
+
+    return ITokenURI(addr).tokenURI(tokenId);
   }
 
-  function setTokenURIContract(address _tokenURIAddress) external onlyOwner {
-    _tokenURIContract = TokenURI(_tokenURIAddress);
+  function setTokenURIContract(address _tokenURIContract) external onlyOwner {
+    tokenURIContract = _tokenURIContract;
   }
-
-  function tokenURIContract() external view returns (address) {
-    return address(_tokenURIContract);
-  }
-
 
   // Contract owner actions
   function updateLicense(string calldata newLicense) external onlyOwner {
@@ -200,37 +206,5 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
     // ERC2981
     return interfaceId == bytes4(0x2a55205a) || super.supportsInterface(interfaceId);
   }
-
-
-
-
-
-  // Proxy overrides
-  // modifier onlyInternal() {
-  //   require(msg.sender == address(this), "Only internal");
-  //   _;
-  // }
-
-  // // TODO test this + total supply
-  // function __burn(uint256 tokenId) external onlyInternal {
-  //   _burn(tokenId);
-  //   _burnt++;
-  // }
-
-  // function __mint(address to, uint256 tokenId) external onlyInternal {
-  //   _mint(to, tokenId);
-  // }
-
-  // function __approve(address to, uint256 tokenId) external onlyInternal {
-  //   _approve(to, tokenId);
-  // }
-
-  // function __transfer(address from, address to, uint256 tokenId) external onlyInternal {
-  //   _transfer(from, to, tokenId);
-  // }
-
-  // function __setApprovalForAll(address owner, address operator, bool approved) external onlyInternal {
-  //   _setApprovalForAll(owner, operator, approved);
-  // }
 }
 

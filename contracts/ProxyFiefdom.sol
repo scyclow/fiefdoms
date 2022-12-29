@@ -40,7 +40,7 @@ contract ProxyFiefdom is Proxy {
     // Invoke the preInitialize function on itself, as defined by the reference contract
     Address.functionDelegateCall(
         referenceContract,
-        abi.encodeWithSignature("preInitialize(address,uint256)", msg.sender, parentTokenId),
+        abi.encodeWithSignature("initialize(address,uint256)", msg.sender, parentTokenId),
         "Address: low-level delegate call failed"
     );
   }
