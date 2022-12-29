@@ -49,6 +49,7 @@ async function setup () {
 
 const safeTransferFrom = 'safeTransferFrom(address,address,uint256)'
 const zeroAddr = '0x0000000000000000000000000000000000000000'
+const rndAddr = '0x1234000000000000000000000000000000000000'
 
 
 describe('Fiefdoms', () => {
@@ -375,7 +376,7 @@ describe('Fiefdoms', () => {
   })
 
 
-  describe.only('allow listing', () => {
+  describe('allow listing', () => {
 
     describe('updateAllowList', () => {
 
@@ -482,46 +483,133 @@ describe('Fiefdoms', () => {
     })
   })
 
-  describe('ProxyFiefdoms', () => {
+  describe.only('ProxyFiefdoms', () => {
+
+    let fiefdom1Contract, fiefdom2Contract
+
+    beforeEach(async () => {
+      await Fiefdoms.connect(overlord).mint(vassal1.address)
+      await Fiefdoms.connect(overlord).mint(vassal2.address)
+
+      fiefdom1Contract = await ReferenceFiefdomFactory.attach(
+        await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
+      )
+
+      fiefdom2Contract = await ReferenceFiefdomFactory.attach(
+        await Fiefdoms.connect(overlord).tokenIdToFiefdom(2)
+      )
+    })
 
     describe('initialize', () => {
 
-      it('should store the kingdom contract + fiefdom id', async () => {})
+      it('should store the kingdom contract + fiefdom id', async () => {
+        expect(await fiefdom1Contract.connect(overlord).fiefdom()).to.equal(1)
+        expect(await fiefdom2Contract.connect(overlord).fiefdom()).to.equal(2)
 
-      it('should mint the 0th token to itself', async () => {})
+        expect(await fiefdom1Contract.connect(overlord).kingdom()).to.equal(Fiefdoms.address)
+        expect(await fiefdom2Contract.connect(overlord).kingdom()).to.equal(Fiefdoms.address)
+      })
 
-      it('should set the name + symbol to the fiefdom id', async () => {})
+      it('should use the default fiefdom tokenURI contract', async () => {
+        expect(await fiefdom2Contract.connect(overlord).tokenURIContract()).to.equal(await Fiefdoms.connect(overlord).defaultTokenURIContract())
+      })
 
-      it('should revert if called a second time', async () => {})
+      it('should mint the 0th token to itself', async () => {
+        expect(await fiefdom1Contract.connect(overlord).ownerOf(0)).to.equal(fiefdom1Contract.address)
+        expect(await fiefdom1Contract.connect(overlord).balanceOf(fiefdom1Contract.address)).to.equal(1)
+        expect(await fiefdom1Contract.connect(overlord).balanceOf(vassal1.address)).to.equal(0)
+        expect(await fiefdom1Contract.connect(overlord).totalSupply()).to.equal(1)
+        expect(await fiefdom1Contract.connect(overlord).exists(0)).to.equal(true)
+      })
 
+      it('should set the name + symbol to the fiefdom id', async () => {
+        expect(await fiefdom1Contract.connect(overlord).name()).to.equal('Fiefdom 1')
+        expect(await fiefdom2Contract.connect(overlord).name()).to.equal('Fiefdom 2')
+
+        expect(await fiefdom1Contract.connect(overlord).symbol()).to.equal('FIEF1')
+        expect(await fiefdom2Contract.connect(overlord).symbol()).to.equal('FIEF2')
+      })
+
+      it('should revert if initialize is called a second time', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).initialize(Fiefdoms.address, 1),
+          "Can't initialize more than once"
+        )
+      })
 
     })
 
     describe('activate', () => {
+      // test everything when token has been traded at least once
+      beforeEach(async () => {
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, 1)
+        await Fiefdoms.connect(vassal2)[safeTransferFrom](vassal2.address, vassal1.address, 2)
 
-      it('should reset contract name/symbol', async () => {})
+        await fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 123, rndAddr)
+        await fiefdom2Contract.connect(vassal1).activate('Newer Name', 'NEWER', 321, rndAddr)
+      })
 
-      it('should set maxSupply, ', async () => {})
+      it('should reset contract name/symbol, maxSupply, tokenURIContract', async () => {
+        expect(await fiefdom1Contract.connect(vassal2).name()).to.equal('New Name')
+        expect(await fiefdom1Contract.connect(vassal2).symbol()).to.equal('NEW')
+        expect(Number(await fiefdom1Contract.connect(vassal2).maxSupply())).to.equal(123)
+        expect(await fiefdom1Contract.connect(vassal2).tokenURIContract()).to.equal(rndAddr)
 
-      it('should set minter/royaltybeneficiary/royaltyBasisPoints, ', async () => {})
+        expect(await fiefdom2Contract.connect(vassal1).name()).to.equal('Newer Name')
+        expect(await fiefdom2Contract.connect(vassal1).symbol()).to.equal('NEWER')
+        expect(Number(await fiefdom2Contract.connect(vassal1).maxSupply())).to.equal(321)
+        expect(await fiefdom2Contract.connect(vassal1).tokenURIContract()).to.equal(rndAddr)
+      })
 
-      it('should transfer the 0 token to the caller', async () => {})
+      it('should set minter/royaltybeneficiary/royaltyBasisPoints, ', async () => {
+        expect(await fiefdom1Contract.connect(vassal2).minter()).to.equal(vassal2.address)
+        const royaltyInfo = await fiefdom1Contract.connect(vassal2).royaltyInfo(0, 100)
+        expect(royaltyInfo[0]).to.equal(vassal2.address)
+        expect(royaltyInfo[1]).to.equal(10)
+      })
 
-      it('should publish a default tokenURI contract', async () => {})
+      it('should transfer the 0 token to the caller', async () => {
+        expect(await fiefdom1Contract.connect(vassal2).ownerOf(0)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal2).balanceOf(vassal2.address)).to.equal(1)
+      })
 
-      it('should revert if called a second time', async () => {})
+      it('should revert if called a second time', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 123, rndAddr),
+          'Fiefdom has already been activated'
+        )
+      })
 
-      it('should revert if called by non-owner', async () => {})
+      it('should revert if called by non-owner', async () => {
+        await Fiefdoms.connect(overlord).mint(vassal1.address)
+
+        fiefdom3Contract = await ReferenceFiefdomFactory.attach(
+          await Fiefdoms.connect(overlord).tokenIdToFiefdom(3)
+        )
+
+        await expectRevert(
+          fiefdom3Contract.connect(overlord).activate('New Name', 'NEW', 123, rndAddr),
+          'Ownable: caller is not the owner'
+        )
+      })
 
     })
 
     describe('owner', () => {
 
-      it('should be the same as the fiefdom token owner', async () => {})
+      it('should be the same as the fiefdom token owner', async () => {
+        expect(await fiefdom1Contract.connect(vassal1).owner()).to.equal(await Fiefdoms.connect(vassal1).ownerOf(1))
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, 1)
+        expect(await fiefdom1Contract.connect(vassal1).owner()).to.equal(await Fiefdoms.connect(vassal1).ownerOf(1))
 
-      it('should be the same as the fiefdom token owner after fiefdom token is transferred', async () => {})
+      })
 
-      it('transferOwnership should revert if called by anyone other than the kingdom', async () => {})
+      it('transferOwnership should revert if called by anyone other than the kingdom', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).transferOwnership(vassal1.address, vassal2.address),
+          'Ownership can only be transferred by the kingdom'
+        )
+      })
 
     })
 
@@ -535,11 +623,10 @@ describe('Fiefdoms', () => {
 
       it('should not allow minting beyond the maxSupply', async () => {})
 
-      it('setMinter should update the minting address', async () => {})
-
-      it('setMinter revert if called by non-owner', async () => {})
 
     })
+
+    describe('batch minting', () => {})
 
     describe('tokenURI', () => {
 
@@ -547,27 +634,72 @@ describe('Fiefdoms', () => {
 
     })
 
+
+    describe('setMinter', () => {
+
+      it('should update the minting address', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 123, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).setMinter(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).minter()).to.equal(vassal2.address)
+        await fiefdom1Contract.connect(vassal2).mint(vassal1.address, 1)
+      })
+
+      it('should revert if called by the non-owner', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).setMinter(vassal2.address),
+          'Ownable: caller is not the owner'
+        )
+      })
+
+    })
+
     describe('setTokenURIContract', () => {
 
-      it('should update the tokenURI contract', async () => {})
+      it('should update the tokenURI contract', async () => {
+        await fiefdom1Contract.connect(vassal1).setTokenURIContract(rndAddr)
+        expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(rndAddr)
+      })
 
-      it('should revert if called by the non-owner', async () => {})
+      it('should revert if called by the non-owner', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).setTokenURIContract(zeroAddr),
+          'Ownable: caller is not the owner'
+        )
+      })
 
     })
 
     describe('updateLicense', () => {
+      it('should update the license', async () => {
+        await fiefdom1Contract.connect(vassal1).updateLicense('CC0')
+        expect(await fiefdom1Contract.connect(vassal1).license()).to.equal('CC0')
+      })
 
-      it('should update the license', async () => {})
-
-      it('should revert if called by non-owner', async () => {})
+      it('should revert if called by the non-owner', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).updateLicense('CC0'),
+          'Ownable: caller is not the owner'
+        )
+      })
 
     })
 
     describe('updateRoyaltyInfo', () => {
 
-      it('should update the royalty info', async () => {})
+      it('should update the royalty info', async () => {
+        await fiefdom1Contract.connect(vassal1).setRoyaltyInfo(vassal2.address, 2000)
+        const royalties = await fiefdom1Contract.connect(vassal1).royaltyInfo(0, 100)
+        expect(royalties[0]).to.equal(vassal2.address)
+        expect(royalties[1]).to.equal(20)
+      })
 
-      it('should revert if called by non-owner', async () => {})
+      it('should revert if called by the non-owner', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).setRoyaltyInfo(vassal2.address, 2000),
+          'Ownable: caller is not the owner'
+        )
+      })
 
     })
   })

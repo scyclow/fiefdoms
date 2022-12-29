@@ -23,21 +23,21 @@ contract ReferenceFiefdom is ERC721 {
   using Strings for uint256;
 
   IBaseContract public kingdom;
-  ITokenURI public tokenURIContract;
   IERC721Hooks public erc721Hooks;
 
   address public minter;
   uint256 public fiefdom;
   bool public isActivated;
   string public license;
+  uint256 public maxSupply;
 
-  uint256 private _totalSupply;
-  uint256 private _maxSupply;
   string private _name;
   string private _symbol;
+  uint256 private _totalSupply;
   bool private _isInitialized;
   address private _royaltyBeneficiary;
   uint16 private _royaltyBasisPoints;
+  address private _tokenURIContract;
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
@@ -71,14 +71,14 @@ contract ReferenceFiefdom is ERC721 {
     address tokenURIContract_
   ) public onlyOwner {
     // Require that it can only be called once
-    require(!isActivated);
+    require(!isActivated, "Fiefdom has already been activated");
 
     // Set the name/symbol
     _name = name_;
     _symbol = symbol_;
 
     // Set the max token supply
-    _maxSupply = maxSupply_;
+    maxSupply = maxSupply_;
 
     // Set the defailt minter address + ERC2981 royalty beneficiary
     minter = msg.sender;
@@ -86,7 +86,7 @@ contract ReferenceFiefdom is ERC721 {
     _royaltyBasisPoints = 1000;
 
     // Set the tokenURI contract
-    tokenURIContract = ITokenURI(tokenURIContract_);
+    _tokenURIContract = tokenURIContract_;
 
     license = 'CC BY-NC 4.0';
     isActivated = true;
@@ -138,24 +138,11 @@ contract ReferenceFiefdom is ERC721 {
 
   // This is called by the Fiefdoms contract whenever the corresponding fiefdom token is traded
   function transferOwnership(address previousOwner, address newOwner) external {
-    require(msg.sender == address(kingdom));
+    require(msg.sender == address(kingdom), 'Ownership can only be transferred by the kingdom');
     emit OwnershipTransferred(previousOwner, newOwner);
   }
 
   // VARIABLES
-
-  function name() public view virtual override(ERC721) returns (string memory) {
-   return  _name;
-  }
-
-  function symbol() public view virtual override(ERC721) returns (string memory) {
-    return _symbol;
-  }
-
-  function maxSupply() public view returns (uint256) {
-    return _maxSupply;
-  }
-
 
   // BASE FUNCTIONALITY
   function totalSupply() external view returns (uint256) {
@@ -167,22 +154,36 @@ contract ReferenceFiefdom is ERC721 {
     return _exists(tokenId);
   }
 
+  function name() public view virtual override(ERC721) returns (string memory) {
+   return  _name;
+  }
+
+  function symbol() public view virtual override(ERC721) returns (string memory) {
+    return _symbol;
+  }
+
   function mint(address to, uint256 tokenId) external {
     require(minter == msg.sender, 'Caller is not the minting address');
+    require(_totalSupply < maxSupply, 'Cannot create more tokens');
 
-    require(tokenId < _maxSupply, 'Invalid tokenId');
     _mint(to, tokenId);
     _totalSupply += 1;
   }
 
-  // // TODO: what's a good generic interface for this?
-  // function mintBatch(address to, uint256 tokenId) external {
-  //   require(minter == msg.sender, 'Caller is not the minting address');
 
-  //   require(tokenId < _maxSupply, 'Invalid tokenId');
-  //   _mint(to, tokenId);
-  //   _totalSupply += 1;
-  // }
+  function mintBatch(address[] calldata to, uint256 tokenIdStart, uint256 tokenIdEnd) external {
+    require(minter == msg.sender, 'Caller is not the minting address');
+
+    uint256 amount = tokenIdEnd - tokenIdStart;
+    require(_totalSupply + amount <= maxSupply, 'Cannot create more fiefdoms');
+    require(to.length == amount, 'Invalid reciepients size');
+
+    for (uint i = 0; i < amount; i++) {
+      _mint(to[i], tokenIdStart + i);
+    }
+
+    _totalSupply += amount;
+  }
 
 
   // Events
@@ -201,15 +202,17 @@ contract ReferenceFiefdom is ERC721 {
 
   // Token URI
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-    address addr = address(tokenURIContract) == address(0)
-      ? kingdom.defaultTokenURIContract()
-      : address(tokenURIContract);
-
-    return ITokenURI(addr).tokenURI(tokenId);
+    return ITokenURI(tokenURIContract()).tokenURI(tokenId);
   }
 
-  function setTokenURIContract(address _tokenURIContract) external onlyOwner {
-    tokenURIContract = ITokenURI(_tokenURIContract);
+  function tokenURIContract() public view returns (address) {
+    return _tokenURIContract == address(0)
+      ? kingdom.defaultTokenURIContract()
+      : _tokenURIContract;
+  }
+
+  function setTokenURIContract(address tokenURIContract_) external onlyOwner {
+    _tokenURIContract = tokenURIContract_;
   }
 
   // Contract owner actions
