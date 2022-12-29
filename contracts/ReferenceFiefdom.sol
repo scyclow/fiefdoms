@@ -15,7 +15,7 @@ interface IBaseContract {
   function defaultTokenURIContract() external view returns (address tokenURIContract);
 }
 
-contract ReferenceFiefdom is Initializable, ERC721 {
+contract ReferenceFiefdom is ERC721 {
   using Strings for uint256;
 
   string public license;
@@ -30,6 +30,7 @@ contract ReferenceFiefdom is Initializable, ERC721 {
   uint256 private _maxSupply;
   string private _name;
   string private _symbol;
+  bool private _isInitialized;
   bool private _isActivated;
   address private _royaltyBeneficiary;
   uint16 private _royaltyBasisPoints;
@@ -44,7 +45,8 @@ contract ReferenceFiefdom is Initializable, ERC721 {
 
   // This is called by the proxy contract when *it* is published
   // Mints token 0 and does not set a name/symbol
-  function initialize(address _overlord, uint256 _fiefdomTokenId) public initializer {
+  function initialize(address _overlord, uint256 _fiefdomTokenId) public {
+    require(!_isInitialized, "Can't initialize more than once");
     // Since constructor is not called (or called the first time with empty values)
     _name = string(abi.encodePacked('Fiefdom ', _fiefdomTokenId.toString()));
     _symbol = string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()));
