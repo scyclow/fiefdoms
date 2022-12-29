@@ -49,7 +49,7 @@ contract ReferenceFiefdom is ERC721 {
 
   // This is called by the proxy contract when *it* is published
   // Mints token 0 and does not set a name/symbol
-  function initialize(address _overlord, uint256 _fiefdomTokenId) public {
+  function initialize(address _kingdom, uint256 _fiefdomTokenId) public {
     require(!_isInitialized, "Can't initialize more than once");
     _isInitialized = true;
 
