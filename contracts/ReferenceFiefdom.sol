@@ -102,25 +102,16 @@ contract ReferenceFiefdom is Initializable, ERC721 {
 
   // Register hooks
   function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
-    if (address(erc721Hooks) == address(0)) return;
-    if (from != address(0) && to != address(0)) {
-      erc721Hooks._beforeTransfer(from, to, tokenId);
-    } else if (to != address(0)) {
-      erc721Hooks._beforeMint(to, tokenId);
-    } else if (from != address(0)) {
-      erc721Hooks._beforeBurn(from, tokenId);
-    } else {
-      revert("from and to are both zero");
-    }
+    if (address(erc721Hooks) != address(0)) erc721Hooks.beforeTokenTransfer(from, to, tokenId);
   }
 
   function approve(address to, uint256 tokenId) public virtual override {
-    if (address(erc721Hooks) != address(0)) erc721Hooks._beforeApprove(to, tokenId);
+    if (address(erc721Hooks) != address(0)) erc721Hooks.beforeApprove(to, tokenId);
     super.approve(to, tokenId);
   }
 
   function setApprovalForAll(address operator, bool approved) public virtual override {
-    if (address(erc721Hooks) != address(0)) erc721Hooks._beforeSetApprovalForAll(operator, approved);
+    if (address(erc721Hooks) != address(0)) erc721Hooks.beforeSetApprovalForAll(operator, approved);
     super.setApprovalForAll(operator, approved);
   }
 
