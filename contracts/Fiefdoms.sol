@@ -96,14 +96,14 @@ contract Fiefdoms is ERC721, Ownable {
   // ROYALTIES
 
 
-  // Fiefdoms may collect their own royalties withotu restriction, but must follow the rules of the broader kingdom
+  // Fiefdoms may collect their own royalties without restriction, but must follow the rules of the broader kingdom
   function getApproved(uint256 tokenId) public view virtual override returns (address) {
     address operator = super.getApproved(tokenId);
     if (useAllowList) require(allowList[operator], 'Operator must be on Allow List');
     return operator;
   }
 
-  // Fiefdoms may collect their own royalties withotu restriction, but must follow the rules of the broader kingdom
+  // Fiefdoms may collect their own royalties without restriction, but must follow the rules of the broader kingdom
   function isApprovedForAll(address owner, address operator) public view virtual override returns (bool) {
     if (useAllowList) require(allowList[operator], 'Operator must be on Allow List');
     return super.isApprovedForAll(owner, operator);
