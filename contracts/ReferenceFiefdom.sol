@@ -47,6 +47,8 @@ contract ReferenceFiefdom is ERC721 {
   // Mints token 0 and does not set a name/symbol
   function initialize(address _overlord, uint256 _fiefdomTokenId) public {
     require(!_isInitialized, "Can't initialize more than once");
+    _isInitialized = true;
+
     // Since constructor is not called (or called the first time with empty values)
     _name = string(abi.encodePacked('Fiefdom ', _fiefdomTokenId.toString()));
     _symbol = string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()));
