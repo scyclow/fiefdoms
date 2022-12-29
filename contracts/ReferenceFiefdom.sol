@@ -18,13 +18,14 @@ interface IBaseContract {
 contract ReferenceFiefdom is ERC721 {
   using Strings for uint256;
 
-  string public license;
-  IBaseContract public overlord;
+  IBaseContract public kingdom;
   ITokenURI public tokenURIContract;
   IERC721Hooks public erc721Hooks;
+
   address public minter;
   uint256 public fiefdom;
   bool public isActivated;
+  string public license;
 
   uint256 private _totalSupply;
   uint256 private _maxSupply;
@@ -81,8 +82,7 @@ contract ReferenceFiefdom is ERC721 {
     _royaltyBeneficiary = msg.sender;
     _royaltyBasisPoints = 1000;
 
-    // Create a default TokenURI contract that points to a baseURI
-
+    // Set the tokenURI contract
     tokenURIContract = ITokenURI(tokenURIContract_);
     isActivated = true;
 
@@ -125,7 +125,7 @@ contract ReferenceFiefdom is ERC721 {
 
   // The owner of this contract is the owner of the corresponding fiefdom token
   function owner() public view virtual returns (address) {
-    return overlord.ownerOf(fiefdom);
+    return kingdom.ownerOf(fiefdom);
   }
 
   modifier onlyOwner() {
@@ -135,7 +135,7 @@ contract ReferenceFiefdom is ERC721 {
 
   // This is called by the Fiefdoms contract whenever the corresponding fiefdom token is traded
   function transferOwnership(address previousOwner, address newOwner) external {
-    require(msg.sender == address(overlord));
+    require(msg.sender == address(kingdom));
     emit OwnershipTransferred(previousOwner, newOwner);
   }
 

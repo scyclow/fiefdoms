@@ -24,6 +24,7 @@ contract Fiefdoms is ERC721, Ownable {
   uint256 private _totalSupply = 1;
   address private _royaltyBeneficiary;
   uint16 private _royaltyBasisPoints = 1000;
+  uint256 public constant maxSupply = 721;
 
   bool public useAllowList = true;
 
@@ -60,6 +61,7 @@ contract Fiefdoms is ERC721, Ownable {
 
   function mint(address to) external {
     require(minter == msg.sender, 'Caller is not the minting address');
+    require(_totalSupply < maxSupply, 'Cannot create more fiefdoms');
 
     _mint(to, _totalSupply);
 
@@ -72,6 +74,7 @@ contract Fiefdoms is ERC721, Ownable {
 
   function mintBatch(address to, uint256 amount) external {
     require(minter == msg.sender, 'Caller is not the minting address');
+    require(_totalSupply + amount <= maxSupply, 'Cannot create more fiefdoms');
 
 
     for (uint256 i; i < amount; i++) {
