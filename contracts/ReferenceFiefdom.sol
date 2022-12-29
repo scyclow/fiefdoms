@@ -15,6 +15,10 @@ interface IBaseContract {
   function defaultTokenURIContract() external view returns (address tokenURIContract);
 }
 
+interface ITokenURI {
+  function tokenURI(uint256 tokenId) external view returns (string memory uri);
+}
+
 contract ReferenceFiefdom is ERC721 {
   using Strings for uint256;
 
@@ -53,7 +57,7 @@ contract ReferenceFiefdom is ERC721 {
     // Since constructor is not called (or called the first time with empty values)
     _name = string(abi.encodePacked('Fiefdom ', _fiefdomTokenId.toString()));
     _symbol = string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()));
-    overlord = IBaseContract(_overlord);
+    kingdom = IBaseContract(_kingdom);
     fiefdom = _fiefdomTokenId;
 
     _totalSupply = 1;
@@ -84,13 +88,14 @@ contract ReferenceFiefdom is ERC721 {
 
     // Set the tokenURI contract
     tokenURIContract = ITokenURI(tokenURIContract_);
-    isActivated = true;
 
     license = 'CC BY-NC 4.0';
+    isActivated = true;
 
     // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
   }
+<<<<<<< HEAD
 
   function activateWitHooks(
     string memory name_,
@@ -199,7 +204,7 @@ contract ReferenceFiefdom is ERC721 {
   // Token URI
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
     address addr = address(tokenURIContract) == address(0)
-      ? overlord.defaultTokenURIContract()
+      ? kingdom.defaultTokenURIContract()
       : address(tokenURIContract);
 
     return ITokenURI(addr).tokenURI(tokenId);

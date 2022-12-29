@@ -264,7 +264,7 @@ describe('Fiefdoms', () => {
 
   })
 
-  describe.only('batchMinting', () => {
+  describe('batchMinting', () => {
 
     it('should revert if not called by the minter', async () => {
       await expectRevert(
@@ -302,7 +302,7 @@ describe('Fiefdoms', () => {
       expect(await fiefdom2Contract.connect(overlord).isActivated()).to.equal(false)
     })
 
-    it('should revert if attempting to mint more than 721 fiefdoms', async () => {
+    it.skip('should revert if attempting to mint more than 721 fiefdoms', async () => {
       await expectRevert(
         Fiefdoms.connect(overlord).mintBatch(vassal1.address, 721),
         'Cannot create more fiefdoms'
@@ -333,20 +333,76 @@ describe('Fiefdoms', () => {
   })
 
   describe('transferring', () => {
+    it('should work normally, update ownerOf/balanceOf', async () => {
+      await Fiefdoms.connect(overlord).mint(overlord.address)
+      await Fiefdoms.connect(overlord)[safeTransferFrom](overlord.address, vassal1.address, 1)
 
-    it('should work normally, update ownerOf/balanceOf', async () => {})
+      expect(await Fiefdoms.connect(overlord).ownerOf(1)).to.equal(vassal1.address)
+      expect(await Fiefdoms.connect(overlord).balanceOf(vassal1.address)).to.equal(1)
+    })
 
-    it('the fiefdom should emit the OwnershipTransferred event', async () => {})
+    it('the fiefdom should emit the OwnershipTransferred event', async () => {
+      await Fiefdoms.connect(overlord).mint(overlord.address)
+      await Fiefdoms.connect(overlord)[safeTransferFrom](overlord.address, vassal1.address, 1)
 
-    it('the new token owner should also be the owner() of the associated fiefdom contract', async () => {})
+      const fiefdomContract = await ReferenceFiefdomFactory.attach(
+        await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
+      )
+
+      const events = await fiefdomContract.queryFilter({
+        address: fiefdomContract.address,
+        topics: []
+      })
+
+      expect(events.length).to.equal(2)
+      // first event is the Transfer for minting token 0
+      expect(events[1].event).to.equal('OwnershipTransferred')
+    })
+
+    it('the new token owner should also be the owner() of the associated fiefdom contract', async () => {
+      await Fiefdoms.connect(overlord).mint(overlord.address)
+      await Fiefdoms.connect(overlord)[safeTransferFrom](overlord.address, vassal1.address, 1)
+
+      const fiefdomContract = await ReferenceFiefdomFactory.attach(
+        await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
+      )
+
+      expect(await fiefdomContract.connect(overlord).owner()).to.equal(vassal1.address)
+    })
 
   })
 
-  describe('allow listing', () => {
+  describe.skip('allow listing', () => {
 
-    it('should revert if non-owner attempts to add an address to the allowList', async () => {})
+    // describe('updateAllowList', () => {
 
-    it('should revert if non-owner attempts to turn the allowList off', async () => {})
+    //   it('should work', async () => {
+    //     expect(await Fiefdoms.connect(overlord))
+    //       Fiefdoms.connect(owner).updateAllowList(vassal1.address, true)
+
+    //   })
+
+    //   it('should revert if non-owner attempts to add an address to the allowList', async () => {
+    //     await expectRevert(
+    //       Fiefdoms.connect(vassal1).updateAllowList(vassal1.address, true),
+    //       'Ownable: caller is not the owner'
+    //     )
+    //   })
+    // })
+
+    // describe('updateUseAllowList', () => {
+
+    //   it('should revert if non-owner attempts to turn the allowList off', async () => {
+    //     await expectRevert(
+    //       Fiefdoms.connect(vassal1).updateUseAllowList(false),
+    //       'Ownable: caller is not the owner'
+    //     )
+    //   })
+    // })
+
+
+
+
 
 
     describe('allow list is active', () => {
@@ -363,6 +419,7 @@ describe('Fiefdoms', () => {
 
     describe('allow list is inactive', () => {
 
+
       it('should revert someone tries to approve a non-ALed operator for a single fiefdom token ', async () => {})
 
       it('should revert someone tries to approve a non-ALed operator for all their fiefdom tokens ', async () => {})
@@ -372,7 +429,7 @@ describe('Fiefdoms', () => {
 
   describe('ProxyFiefdoms', () => {
 
-    describe('preInitialization', () => {
+    describe('initialize', () => {
 
       it('should store the kingdom contract + fiefdom id', async () => {})
 
@@ -380,10 +437,12 @@ describe('Fiefdoms', () => {
 
       it('should set the name + symbol to the fiefdom id', async () => {})
 
+      it('should revert if called a second time', async () => {})
+
 
     })
 
-    describe('initialization', () => {
+    describe('activate', () => {
 
       it('should reset contract name/symbol', async () => {})
 
