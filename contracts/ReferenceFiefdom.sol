@@ -62,7 +62,7 @@ contract ReferenceFiefdom is Initializable, ERC721Upgradeable {
     string memory name_,
     string memory symbol_,
     uint256 maxSupply_,
-    address tokenURIContract_,
+    address tokenURIContract_
   ) external onlyOwner {
     // Require that it can only be called once
     require(!isActivated);
