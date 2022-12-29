@@ -117,8 +117,9 @@ contract ReferenceFiefdom is Initializable, ERC721 {
       erc721Hooks._beforeMint(to, tokenId);
     } else if (from != address(0)) {
       erc721Hooks._beforeBurn(from, tokenId);
+    } else {
+      revert("from and to are both zero");
     }
-    revert("from and to are both zero");
   }
 
   function approve(address to, uint256 tokenId) public virtual override {
