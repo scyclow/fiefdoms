@@ -8,7 +8,7 @@ import "./Dependencies.sol";
 
 interface IParent {
   function totalSupply() external view returns (uint256);
-  function referenceContract() external view returns (address);
+  function fiefdomArchetype() external view returns (address);
 }
 contract ProxyFiefdom is Proxy {
   bytes32 internal constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
@@ -31,15 +31,15 @@ contract ProxyFiefdom is Proxy {
     return _implementation();
   }
 
-  // Defer all functionality to the given reference contract
+  // Defer all functionality to the given archetype contract
   constructor() {
-    address referenceContract = IParent(msg.sender).referenceContract();
+    address fiefdomArchetype = IParent(msg.sender).fiefdomArchetype();
     uint256 parentTokenId = IParent(msg.sender).totalSupply();
-    getAddressSlot(_IMPLEMENTATION_SLOT).value = referenceContract;
+    getAddressSlot(_IMPLEMENTATION_SLOT).value = fiefdomArchetype;
 
-    // Invoke the preInitialize function on itself, as defined by the reference contract
+    // Invoke the preInitialize function on itself, as defined by the archetype contract
     Address.functionDelegateCall(
-        referenceContract,
+        fiefdomArchetype,
         abi.encodeWithSignature("initialize(address,uint256)", msg.sender, parentTokenId),
         "Address: low-level delegate call failed"
     );

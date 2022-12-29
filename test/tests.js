@@ -27,7 +27,7 @@ const getSVG = rawURI => b64Decode(JSON.parse(utf8Clean(rawURI)).image)
 
 
 let signers, overlord, operator, vassal1, vassal2
-let Fiefdoms, FiefdomsFactory, ReferenceFiefdomFactory, ReferenceFiefdom
+let Fiefdoms, FiefdomsFactory, FiefdomArchetypeFactory, FiefdomArchetype
 
 async function setup () {
   signers = await ethers.getSigners()
@@ -36,13 +36,13 @@ async function setup () {
   vassal1 = signers[2]
   vassal2 = signers[3]
 
-  ReferenceFiefdomFactory = await ethers.getContractFactory('ReferenceFiefdom', overlord)
+  FiefdomArchetypeFactory = await ethers.getContractFactory('FiefdomArchetype', overlord)
 
   FiefdomsFactory = await ethers.getContractFactory('Fiefdoms', overlord)
   Fiefdoms = await FiefdomsFactory.deploy()
   await Fiefdoms.deployed()
 
-  ReferenceFiefdom = await ReferenceFiefdomFactory.attach(
+  FiefdomArchetype = await FiefdomArchetypeFactory.attach(
     await Fiefdoms.connect(overlord).tokenIdToFiefdom(0)
   )
 }
@@ -61,7 +61,7 @@ describe('Fiefdoms', () => {
     it('works', async () => {
       await Fiefdoms.connect(overlord).mint(overlord.address)
 
-      const fiefdomContract = await ReferenceFiefdomFactory.attach(
+      const fiefdomContract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
       )
 
@@ -86,8 +86,8 @@ describe('Fiefdoms', () => {
       expect(await Fiefdoms.connect(overlord).minter()).to.equal(overlord.address)
     })
 
-    it('should publish the reference fiefdom, tokenURI contract and default tokenURI contract', async () => {
-      expect(await Fiefdoms.connect(overlord).referenceContract()).to.not.equal(zeroAddr)
+    it('should publish the fiefdom archetype, tokenURI contract and default tokenURI contract', async () => {
+      expect(await Fiefdoms.connect(overlord).fiefdomArchetype()).to.not.equal(zeroAddr)
       expect(await Fiefdoms.connect(overlord).tokenURIContract()).to.not.equal(zeroAddr)
       expect(await Fiefdoms.connect(overlord).defaultTokenURIContract()).to.not.equal(zeroAddr)
     })
@@ -97,8 +97,8 @@ describe('Fiefdoms', () => {
       expect(await Fiefdoms.connect(overlord).totalSupply()).to.equal(1)
     })
 
-    it('should link token 0 to the reference fiefdom via tokenIdToFiefdom', async () => {
-      expect(await Fiefdoms.connect(overlord).tokenIdToFiefdom(0)).to.equal(ReferenceFiefdom.address)
+    it('should link token 0 to the fiefdom archetype via tokenIdToFiefdom', async () => {
+      expect(await Fiefdoms.connect(overlord).tokenIdToFiefdom(0)).to.equal(FiefdomArchetype.address)
     })
 
   })
@@ -108,17 +108,17 @@ describe('Fiefdoms', () => {
     it('should work', async () => {
       const beforeURI = await Fiefdoms.connect(overlord).tokenURI(0)
 
-      ReferenceFiefdom.connect(overlord).activate('fiefdom 1', 'FIEF1', 100, zeroAddr)
+      FiefdomArchetype.connect(overlord).activate('fiefdom 1', 'FIEF1', 100, zeroAddr)
 
       const afterURI = await Fiefdoms.connect(overlord).tokenURI(0)
 
       expect(getJsonURI(beforeURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal(false)
       expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal(true)
-      expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Fiefdom').value.toLowerCase()).to.equal(ReferenceFiefdom.address.toLowerCase())
+      expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Fiefdom').value.toLowerCase()).to.equal(FiefdomArchetype.address.toLowerCase())
 
 
       await Fiefdoms.connect(overlord).mint(vassal1.address)
-      const fiefdomContract = await ReferenceFiefdomFactory.attach(
+      const fiefdomContract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
       )
 
@@ -249,8 +249,8 @@ describe('Fiefdoms', () => {
       expect(fiefdom2).to.not.equal(zeroAddr)
       expect(fiefdom1).to.not.equal(fiefdom2)
 
-      const fiefdom1Contract = await ReferenceFiefdomFactory.attach(fiefdom1)
-      const fiefdom2Contract = await ReferenceFiefdomFactory.attach(fiefdom2)
+      const fiefdom1Contract = await FiefdomArchetypeFactory.attach(fiefdom1)
+      const fiefdom2Contract = await FiefdomArchetypeFactory.attach(fiefdom2)
 
       expect(await fiefdom1Contract.connect(overlord).isActivated()).to.equal(false)
       expect(await fiefdom2Contract.connect(overlord).isActivated()).to.equal(false)
@@ -298,8 +298,8 @@ describe('Fiefdoms', () => {
       expect(fiefdom2).to.not.equal(zeroAddr)
       expect(fiefdom1).to.not.equal(fiefdom2)
 
-      const fiefdom1Contract = await ReferenceFiefdomFactory.attach(fiefdom1)
-      const fiefdom2Contract = await ReferenceFiefdomFactory.attach(fiefdom2)
+      const fiefdom1Contract = await FiefdomArchetypeFactory.attach(fiefdom1)
+      const fiefdom2Contract = await FiefdomArchetypeFactory.attach(fiefdom2)
 
       expect(await fiefdom1Contract.connect(overlord).isActivated()).to.equal(false)
       expect(await fiefdom2Contract.connect(overlord).isActivated()).to.equal(false)
@@ -348,7 +348,7 @@ describe('Fiefdoms', () => {
       await Fiefdoms.connect(overlord).mint(overlord.address)
       await Fiefdoms.connect(overlord)[safeTransferFrom](overlord.address, vassal1.address, 1)
 
-      const fiefdomContract = await ReferenceFiefdomFactory.attach(
+      const fiefdomContract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
       )
 
@@ -366,7 +366,7 @@ describe('Fiefdoms', () => {
       await Fiefdoms.connect(overlord).mint(overlord.address)
       await Fiefdoms.connect(overlord)[safeTransferFrom](overlord.address, vassal1.address, 1)
 
-      const fiefdomContract = await ReferenceFiefdomFactory.attach(
+      const fiefdomContract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
       )
 
@@ -483,7 +483,7 @@ describe('Fiefdoms', () => {
     })
   })
 
-  describe.only('ProxyFiefdoms', () => {
+  describe('ProxyFiefdoms', () => {
 
     let fiefdom1Contract, fiefdom2Contract
 
@@ -491,11 +491,11 @@ describe('Fiefdoms', () => {
       await Fiefdoms.connect(overlord).mint(vassal1.address)
       await Fiefdoms.connect(overlord).mint(vassal2.address)
 
-      fiefdom1Contract = await ReferenceFiefdomFactory.attach(
+      fiefdom1Contract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
       )
 
-      fiefdom2Contract = await ReferenceFiefdomFactory.attach(
+      fiefdom2Contract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(2)
       )
     })
@@ -583,7 +583,7 @@ describe('Fiefdoms', () => {
       it('should revert if called by non-owner', async () => {
         await Fiefdoms.connect(overlord).mint(vassal1.address)
 
-        fiefdom3Contract = await ReferenceFiefdomFactory.attach(
+        fiefdom3Contract = await FiefdomArchetypeFactory.attach(
           await Fiefdoms.connect(overlord).tokenIdToFiefdom(3)
         )
 
@@ -630,7 +630,13 @@ describe('Fiefdoms', () => {
 
     describe('tokenURI', () => {
 
-      it('should defer to the tokenURI contract', async () => {})
+      it('should defer to the kingdom tokenURI contract before activation, or it set to 0x0', async () => {
+        expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(await Fiefdoms.connect(vassal1).defaultTokenURIContract())
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 123, rndAddr)
+        expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(rndAddr)
+        await fiefdom1Contract.connect(vassal1).setTokenURIContract(zeroAddr)
+        expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(await Fiefdoms.connect(vassal1).defaultTokenURIContract())
+      })
 
     })
 

@@ -19,7 +19,7 @@ interface ITokenURI {
   function tokenURI(uint256 tokenId) external view returns (string memory uri);
 }
 
-contract ReferenceFiefdom is ERC721 {
+contract FiefdomArchetype is ERC721 {
   using Strings for uint256;
 
   IBaseContract public kingdom;
@@ -42,7 +42,7 @@ contract ReferenceFiefdom is ERC721 {
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
 
-  // This is only called when the reference contract is published
+  // This is only called when the archetype contract is published
   constructor() ERC721('', '') {
     initialize(msg.sender, 0);
   }

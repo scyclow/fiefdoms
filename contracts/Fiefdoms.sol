@@ -4,7 +4,7 @@ import "./Dependencies.sol";
 import "./BaseTokenURI.sol";
 import "./DefaultTokenURI.sol";
 import "./ProxyFiefdom.sol";
-import "./ReferenceFiefdom.sol";
+import "./FiefdomArchetype.sol";
 
 import "hardhat/console.sol";
 
@@ -18,7 +18,7 @@ contract Fiefdoms is ERC721, Ownable {
   mapping(address => bool) public allowList;
 
   address public minter;
-  address public referenceContract;
+  address public fiefdomArchetype;
   address public defaultTokenURIContract;
   bool public useAllowList = true;
 
@@ -40,13 +40,13 @@ contract Fiefdoms is ERC721, Ownable {
     _tokenURIContract = new BaseTokenURI();
     defaultTokenURIContract = address(new DefaultTokenURI());
 
-    // Publish a reference contract. All proxy contracts will derive its functionality from this
-    referenceContract = address(new ReferenceFiefdom());
+    // Publish an archetype contract. All proxy contracts will derive its functionality from this
+    fiefdomArchetype = address(new FiefdomArchetype());
 
-    // Token 0 will use the reference contract directly instead of a proxy
+    // Token 0 will use the archetype contract directly instead of a proxy
     _mint(msg.sender, 0);
 
-    tokenIdToFiefdom[0] = referenceContract;
+    tokenIdToFiefdom[0] = fiefdomArchetype;
   }
 
 
@@ -92,7 +92,7 @@ contract Fiefdoms is ERC721, Ownable {
     uint256 tokenId
   ) internal virtual override {
     // When this token is transferred, also transfer ownership over its fiefdom
-    ReferenceFiefdom(tokenIdToFiefdom[tokenId]).transferOwnership(from, to);
+    FiefdomArchetype(tokenIdToFiefdom[tokenId]).transferOwnership(from, to);
     return super._transfer(from, to, tokenId);
   }
 

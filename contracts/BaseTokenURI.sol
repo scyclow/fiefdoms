@@ -4,7 +4,7 @@ pragma solidity ^0.8.11;
 
 import "./Dependencies.sol";
 import "./Fiefdoms.sol";
-import "./ReferenceFiefdom.sol";
+import "./FiefdomArchetype.sol";
 
 contract BaseTokenURI {
   using Strings for uint256;
@@ -18,7 +18,7 @@ contract BaseTokenURI {
   function tokenURI(uint256 tokenId) external view returns (string memory) {
     bytes memory name = abi.encodePacked('Fiefdom Vassal #', tokenId.toString());
     address fiefdomAddr = fiefdoms.tokenIdToFiefdom(tokenId);
-    bool isActivated = ReferenceFiefdom(fiefdomAddr).isActivated();
+    bool isActivated = FiefdomArchetype(fiefdomAddr).isActivated();
     string memory pColor = isActivated ? '#fff' : '#000';
     string memory sColor = isActivated ? '#000' : '#fff';
     string memory state = isActivated ? 'Activated' : 'Unactivated';
