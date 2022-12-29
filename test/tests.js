@@ -26,13 +26,15 @@ const getSVG = rawURI => b64Decode(JSON.parse(utf8Clean(rawURI)).image)
 
 
 
-let signers, overlord, vassal1
+let signers, overlord, operator, vassal1, vassal2
 let Fiefdoms, FiefdomsFactory, ReferenceFiefdomFactory, ReferenceFiefdom
 
 async function setup () {
   signers = await ethers.getSigners()
   overlord = signers[0]
-  vassal1 = signers[1]
+  operator = signers[1]
+  vassal1 = signers[2]
+  vassal2 = signers[3]
 
   ReferenceFiefdomFactory = await ethers.getContractFactory('ReferenceFiefdom', overlord)
 
@@ -373,57 +375,109 @@ describe('Fiefdoms', () => {
   })
 
 
-  describe.skip('allow listing', () => {
+  describe.only('allow listing', () => {
 
-    // describe('updateAllowList', () => {
+    describe('updateAllowList', () => {
 
-    //   it('should work', async () => {
-    //     expect(await Fiefdoms.connect(overlord))
-    //       Fiefdoms.connect(owner).updateAllowList(vassal1.address, true)
+      it('should work', async () => {
+        expect(await Fiefdoms.connect(overlord).allowList(vassal1.address)).to.equal(false)
+        Fiefdoms.connect(overlord).updateAllowList(vassal1.address, true)
+        expect(await Fiefdoms.connect(overlord).allowList(vassal1.address)).to.equal(true)
+        Fiefdoms.connect(overlord).updateAllowList(vassal1.address, false)
+        expect(await Fiefdoms.connect(overlord).allowList(vassal1.address)).to.equal(false)
+      })
 
-    //   })
+      it('should revert if non-owner attempts to add an address to the allowList', async () => {
+        await expectRevert(
+          Fiefdoms.connect(vassal1).updateAllowList(vassal1.address, true),
+          'Ownable: caller is not the owner'
+        )
+      })
 
-    //   it('should revert if non-owner attempts to add an address to the allowList', async () => {
-    //     await expectRevert(
-    //       Fiefdoms.connect(vassal1).updateAllowList(vassal1.address, true),
-    //       'Ownable: caller is not the owner'
-    //     )
-    //   })
-    // })
+    })
 
-    // describe('updateUseAllowList', () => {
+    describe('updateUseAllowList', () => {
 
-    //   it('should revert if non-owner attempts to turn the allowList off', async () => {
-    //     await expectRevert(
-    //       Fiefdoms.connect(vassal1).updateUseAllowList(false),
-    //       'Ownable: caller is not the owner'
-    //     )
-    //   })
-    // })
+      it('should work', async () => {
+        expect(await Fiefdoms.connect(overlord).useAllowList()).to.equal(true)
+        Fiefdoms.connect(overlord).updateUseAllowList(false)
+        expect(await Fiefdoms.connect(overlord).useAllowList()).to.equal(false)
+      })
 
+      it('should revert if non-owner attempts to turn the allowList off', async () => {
+        await expectRevert(
+          Fiefdoms.connect(vassal1).updateUseAllowList(false),
+          'Ownable: caller is not the owner'
+        )
+      })
 
-
-
-
+    })
 
     describe('allow list is active', () => {
+      beforeEach(async () => {
+        await Fiefdoms.connect(overlord).mint(vassal1.address)
+        await Fiefdoms.connect(overlord).mint(vassal1.address)
+        await Fiefdoms.connect(overlord).updateUseAllowList(true)
+        await Fiefdoms.connect(overlord).updateAllowList(operator.address, true)
+      })
 
-      it('should revert someone tries to approve a non-ALed operator for a single fiefdom token ', async () => {})
+      it('should revert if someone tries to approve a non-ALed operator', async () => {
+        await expectRevert(
+          Fiefdoms.connect(vassal1).approve(vassal2.address, 1),
+          'Operator must be on Allow List'
+        )
 
-      it('should revert someone tries to approve a non-ALed operator for all their fiefdom tokens ', async () => {})
+        await expectRevert(
+          Fiefdoms.connect(vassal1).setApprovalForAll(vassal2.address, true),
+          'Operator must be on Allow List'
+        )
+      })
 
-      it('should not revert if someone tries to approve an ALed operator for a single fiefdom token ', async () => {})
 
-      it('should not revert if someone tries to approve an ALed operator for all their fiefdom tokens ', async () => {})
+      it('should not revert if someone tries to approve an ALed operator', async () => {
+        Fiefdoms.connect(vassal1).approve(operator.address, 1)
+        await Fiefdoms.connect(operator)[safeTransferFrom](vassal1.address, vassal2.address, 1)
 
+        Fiefdoms.connect(vassal1).setApprovalForAll(operator.address, true)
+        await Fiefdoms.connect(operator)[safeTransferFrom](vassal1.address, vassal2.address, 2)
+
+        expect(await Fiefdoms.connect(overlord).balanceOf(vassal2.address)).to.equal(2)
+      })
+
+
+      it('should revert if non-ALed operators were previousely approved', async () => {
+        await Fiefdoms.connect(overlord).updateUseAllowList(false)
+
+        Fiefdoms.connect(vassal1).approve(vassal2.address, 1)
+        Fiefdoms.connect(vassal1).setApprovalForAll(vassal2.address)
+
+        await Fiefdoms.connect(overlord).updateUseAllowList(true)
+
+        await expectRevert(
+          Fiefdoms.connect(vassal2)[safeTransferFrom](vassal1.address, vassal2.address, 1),
+          'ERC721: transfer caller is not owner nor approved'
+        )
+      })
     })
 
     describe('allow list is inactive', () => {
 
+      beforeEach(async () => {
+        await Fiefdoms.connect(overlord).updateUseAllowList(false)
+        await Fiefdoms.connect(overlord).updateAllowList(operator.address, true)
+        await Fiefdoms.connect(overlord).mint(vassal1.address)
+        await Fiefdoms.connect(overlord).mint(vassal1.address)
+      })
 
-      it('should revert someone tries to approve a non-ALed operator for a single fiefdom token ', async () => {})
+      it('should not revert someone tries to approve a non-ALed operator for a single fiefdom token ', async () => {
+        Fiefdoms.connect(vassal1).approve(vassal2.address, 1)
+        await Fiefdoms.connect(vassal2)[safeTransferFrom](vassal1.address, vassal2.address, 1)
 
-      it('should revert someone tries to approve a non-ALed operator for all their fiefdom tokens ', async () => {})
+        Fiefdoms.connect(vassal1).setApprovalForAll(vassal2.address, true)
+        await Fiefdoms.connect(vassal2)[safeTransferFrom](vassal1.address, vassal2.address, 2)
+
+        expect(await Fiefdoms.connect(overlord).balanceOf(vassal2.address)).to.equal(2)
+      })
 
     })
   })

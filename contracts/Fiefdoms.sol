@@ -6,6 +6,8 @@ import "./DefaultTokenURI.sol";
 import "./ProxyFiefdom.sol";
 import "./ReferenceFiefdom.sol";
 
+import "hardhat/console.sol";
+
 pragma solidity ^0.8.11;
 
 
@@ -96,18 +98,32 @@ contract Fiefdoms is ERC721, Ownable {
 
   // ROYALTIES
 
+  function approve(address to, uint256 tokenId) public virtual override {
+    if (useAllowList) require(allowList[to], 'Operator must be on Allow List');
+    super.approve(to, tokenId);
+  }
+
+  function setApprovalForAll(address operator, bool approved) public virtual override {
+    if (useAllowList && approved) require(allowList[operator], 'Operator must be on Allow List');
+    super.setApprovalForAll(operator, approved);
+  }
 
   // Fiefdoms may collect their own royalties without restriction, but must follow the rules of the broader kingdom
   function getApproved(uint256 tokenId) public view virtual override returns (address) {
     address operator = super.getApproved(tokenId);
-    if (useAllowList) require(allowList[operator], 'Operator must be on Allow List');
-    return operator;
+    if (useAllowList) {
+      return allowList[operator] ? operator : address(0);
+    } else {
+      return operator;
+    }
   }
 
-  // Fiefdoms may collect their own royalties without restriction, but must follow the rules of the broader kingdom
   function isApprovedForAll(address owner, address operator) public view virtual override returns (bool) {
-    if (useAllowList) require(allowList[operator], 'Operator must be on Allow List');
-    return super.isApprovedForAll(owner, operator);
+    if (useAllowList && !allowList[operator]) {
+      return false;
+    } else {
+      return super.isApprovedForAll(owner, operator);
+    }
   }
 
 
