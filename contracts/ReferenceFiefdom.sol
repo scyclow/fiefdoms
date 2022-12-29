@@ -36,7 +36,6 @@ contract ReferenceFiefdom is ERC721 {
   string private _name;
   string private _symbol;
   bool private _isInitialized;
-  bool private _isActivated;
   address private _royaltyBeneficiary;
   uint16 private _royaltyBasisPoints;
 
@@ -95,7 +94,6 @@ contract ReferenceFiefdom is ERC721 {
     // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
   }
-<<<<<<< HEAD
 
   function activateWitHooks(
     string memory name_,

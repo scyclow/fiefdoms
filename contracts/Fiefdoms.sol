@@ -18,6 +18,7 @@ contract Fiefdoms is ERC721, Ownable {
   address public minter;
   address public referenceContract;
   address public defaultTokenURIContract;
+  bool public useAllowList = true;
 
   BaseTokenURI private _tokenURIContract;
 
@@ -25,9 +26,6 @@ contract Fiefdoms is ERC721, Ownable {
   address private _royaltyBeneficiary;
   uint16 private _royaltyBasisPoints = 1000;
   uint256 public constant maxSupply = 721;
-
-  bool public useAllowList = true;
-
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
@@ -178,6 +176,10 @@ contract Fiefdoms is ERC721, Ownable {
 
   function setMinter(address newMinter) external onlyOwner {
     minter = newMinter;
+  }
+
+  function overlord() external view returns (address) {
+    return owner();
   }
 }
 
