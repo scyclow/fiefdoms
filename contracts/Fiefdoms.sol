@@ -18,15 +18,14 @@ contract Fiefdoms is ERC721, Ownable {
   address public minter;
   address public referenceContract;
   address public defaultTokenURIContract;
+  bool public useAllowList = true;
 
   BaseTokenURI private _tokenURIContract;
 
   uint256 private _totalSupply = 1;
   address private _royaltyBeneficiary;
   uint16 private _royaltyBasisPoints = 1000;
-
-  bool public useAllowList = true;
-
+  uint256 public constant maxSupply = 721;
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
@@ -60,6 +59,7 @@ contract Fiefdoms is ERC721, Ownable {
 
   function mint(address to) external {
     require(minter == msg.sender, 'Caller is not the minting address');
+    require(_totalSupply < maxSupply, 'Cannot create more fiefdoms');
 
     _mint(to, _totalSupply);
 
@@ -72,6 +72,7 @@ contract Fiefdoms is ERC721, Ownable {
 
   function mintBatch(address to, uint256 amount) external {
     require(minter == msg.sender, 'Caller is not the minting address');
+    require(_totalSupply + amount <= maxSupply, 'Cannot create more fiefdoms');
 
 
     for (uint256 i; i < amount; i++) {
@@ -175,6 +176,10 @@ contract Fiefdoms is ERC721, Ownable {
 
   function setMinter(address newMinter) external onlyOwner {
     minter = newMinter;
+  }
+
+  function overlord() external view returns (address) {
+    return owner();
   }
 }
 
