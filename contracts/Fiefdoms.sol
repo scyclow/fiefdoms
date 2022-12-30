@@ -63,6 +63,7 @@ contract Fiefdoms is ERC721, Ownable {
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
+  event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
 
 
   // SETUP
@@ -192,6 +193,7 @@ contract Fiefdoms is ERC721, Ownable {
 
   function setTokenURIContract(address _tokenURIAddress) external onlyOwner {
     _tokenURIContract = BaseTokenURI(_tokenURIAddress);
+    emit BatchMetadataUpdate(0, _totalSupply);
   }
 
   function setDefaultTokenURIContract(address newDefault) external onlyOwner {

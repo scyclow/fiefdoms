@@ -82,6 +82,7 @@ contract FiefdomArchetype is ERC721 {
 
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
+  event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
 
   // This is only called when the archetype contract is published
   constructor() ERC721('', '') {
@@ -254,6 +255,7 @@ contract FiefdomArchetype is ERC721 {
   function setTokenURIContract(address tokenURIContract_) external onlyOwner {
     require(!tokenURIFrozen, 'Token URI has been frozen');
     _tokenURIContract = tokenURIContract_;
+    emit BatchMetadataUpdate(0, _totalSupply);
   }
 
   function freeszeTokenURI() external onlyOwner {
@@ -296,8 +298,8 @@ contract FiefdomArchetype is ERC721 {
   }
 
   function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721) returns (bool) {
-    // ERC2981
-    return interfaceId == bytes4(0x2a55205a) || super.supportsInterface(interfaceId);
+    // ERC2981 & ERC4906
+    return interfaceId == bytes4(0x2a55205a) || interfaceId == bytes4(0x49064906) || super.supportsInterface(interfaceId);
   }
 
   // Events
