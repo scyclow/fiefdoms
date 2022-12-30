@@ -22,9 +22,9 @@ The Fiefdoms Kingdom is an ERC721 collection of 721 Vassal tokens.
 Each Vassal token gives the token holder ownership over a separate, unique ERC721
 contract (a "Fiefdom").
 
-Transfering a Vassal token will also transfer ownership over that Fiefdom.
+Transferring a Vassal token will also transfer ownership over that Fiefdom.
 
-Minting a Vassal token will create a proxy contract, which inherets all of its behavior
+Minting a Vassal token will create a proxy contract, which inherits all of its behavior
 from the Fiefdom Archetype.
 
 Vassal #0 controls the domain of the Fiefdom Archetype directly.

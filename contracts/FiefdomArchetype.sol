@@ -17,23 +17,21 @@
 by steviep.eth (2022)
 
 
-All Fiefdom Proxy contracts inheret the behavior of the Fiefdom Archetype.
+All Fiefdom Proxy contracts inherit the behavior of the Fiefdom Archetype.
 
 Upon publication, a fiefdom contract will set a placeholder name and symbol, record the timestamp
 of its founding at, and will mint token #0 to itself.
 
-Ownership over the Fiefdom will follow the owner of the corrsponding Vassal token, which is manage by
+Ownership over the Fiefdom will follow the owner of the corresponding Vassal token, which is manage by
 the Fiefdom Kingdom contract.
 
 At any point, the Vassal owner may choose to activate the Fiefdom. This will set the contract's name,
-symbol, license, max supply of tokens, and tokenURI contract. While name and symbol are fixed, maxSupply
-and tokenURIContract can be updated later. maxSupply and tokenURI can also be frozen by the Vassal owner.
-
-Additionally, the Vassal owner my activate the fiefdom with activateWitHooks. This also accepts a contract
-that defines the behavior of transfer and approval hooks.
+symbol, license, max supply of tokens, tokenURI contract, and hooks contract. While name and symbol are fixed, maxSupply
+and tokenURIContract can be updated later. maxSupply and tokenURI can also be frozen by the Vassal owner. The passed hooks
+contract address allows for the Vassal owner to define extra behavior that runs before transfers and approvals.
 
 The Vassal owner will be the default minter of the contract, but can also set the minter to another
-address. In pactice, the minter will be a separate minting contract. The minter can mint tokens using
+address. In practice, the minter will be a separate minting contract. The minter can mint tokens using
 any of three methods: mint, mintBatch, and mintBatchTo.
 
 If set to 0x0, tokenURI logic will default to the default token URI contract set at the kingdom level. Otherwise,
@@ -108,7 +106,8 @@ contract FiefdomArchetype is ERC721 {
     string memory symbol_,
     string memory license_,
     uint256 maxSupply_,
-    address tokenURIContract_
+    address tokenURIContract_,
+    address erc721Hooks_
   ) public onlyOwner {
     // Require that it can only be called once
     require(!isActivated, "Fiefdom has already been activated");
@@ -134,20 +133,13 @@ contract FiefdomArchetype is ERC721 {
     // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
     kingdom.activation(fiefdom);
-  }
 
-  function activateWitHooks(
-    string memory name_,
-    string memory symbol_,
-    string memory license_,
-    uint256 maxSupply_,
-    address tokenURIContract_,
-    address _erc721Hooks
-  ) public onlyOwner {
-    activate(name_, symbol_, license_, maxSupply_, tokenURIContract_);
-    erc721Hooks = IERC721Hooks(_erc721Hooks);
+    // Set hooks if contract address provided
+    if (address(erc721Hooks_) != address(0)) {
+      erc721Hooks = IERC721Hooks(erc721Hooks_);
+      require(erc721Hooks.parent() == address(this), "Passed ERC721Hooks contract is not configured for this Fiefdom");
+    }
   }
-
 
   // Register hooks
   function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
@@ -255,19 +247,19 @@ contract FiefdomArchetype is ERC721 {
     emit BatchMetadataUpdate(0, _totalSupply);
   }
 
-  function freeszeTokenURI() external onlyOwner {
-    require(isActivated, 'Feifdom must be activated');
+  function freezeTokenURI() external onlyOwner {
+    require(isActivated, 'Fiefdom must be activated');
     tokenURIFrozen = true;
   }
 
   // Contract owner actions
   function freezeMaxSupply() external onlyOwner {
-    require(isActivated, 'Feifdom must be activated');
+    require(isActivated, 'Fiefdom must be activated');
     maxSupplyFrozen = true;
   }
 
   function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
-    require(isActivated, 'Feifdom must be activated');
+    require(isActivated, 'Fiefdom must be activated');
     require(newMaxSupply >= _totalSupply, 'maxSupply must be >= than totalSupply');
     require(!maxSupplyFrozen, 'maxSupply has been frozen');
     maxSupply = newMaxSupply;

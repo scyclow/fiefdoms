@@ -33,8 +33,8 @@ const zeroAddr = '0x0000000000000000000000000000000000000000'
 const rndAddr = '0x1234000000000000000000000000000000000000'
 const theFuture = 2000000000
 
-let signers, overlord, operator, vassal1, vassal2
-let Fiefdoms, FiefdomsFactory, FiefdomArchetypeFactory, FiefdomArchetype
+let signers, overlord, operator, vassal1, vassal2, vassal3, vassal4
+let Fiefdoms, FiefdomsFactory, FiefdomArchetypeFactory, ERC721HooksFactory, FiefdomArchetype
 let archetypeFounded
 
 describe('Fiefdoms', () => {
@@ -45,8 +45,11 @@ describe('Fiefdoms', () => {
     operator = signers[1]
     vassal1 = signers[2]
     vassal2 = signers[3]
+    vassal3 = signers[4]
+    vassal4 = signers[5]
 
     FiefdomArchetypeFactory = await ethers.getContractFactory('FiefdomArchetype', overlord)
+    ERC721HooksFactory = await ethers.getContractFactory('ERC721HooksMock', overlord)
 
     FiefdomsFactory = await ethers.getContractFactory('Fiefdoms', overlord)
     archetypeFounded = await time.latest()
@@ -110,7 +113,7 @@ describe('Fiefdoms', () => {
     it('should work', async () => {
       const beforeURI = await Fiefdoms.connect(overlord).tokenURI(0)
 
-      FiefdomArchetype.connect(overlord).activate('fiefdom 0', 'FIEF0', 'CC BY-NC 4.0', 100, zeroAddr)
+      await FiefdomArchetype.connect(overlord).activate('fiefdom 0', 'FIEF0', 'CC BY-NC 4.0', 100, zeroAddr, zeroAddr)
 
       const afterURI = await Fiefdoms.connect(overlord).tokenURI(0)
 
@@ -324,7 +327,7 @@ describe('Fiefdoms', () => {
       expect(await fiefdom2Contract.connect(overlord).isActivated()).to.equal(false)
     })
 
-    it.skip('should revert if attempting to mint more than 721 fiefdoms', async () => {
+    it('should revert if attempting to mint more than 721 fiefdoms', async () => {
       await expectRevert(
         Fiefdoms.connect(overlord).mintBatch(vassal1.address, 721),
         'Cannot create more fiefdoms'
@@ -504,11 +507,12 @@ describe('Fiefdoms', () => {
 
   describe('ProxyFiefdoms', () => {
 
-    let fiefdom1Contract, fiefdom2Contract
+    let fiefdom1Contract, fiefdom2Contract, fiefdom3Contract, hooksContract
 
     beforeEach(async () => {
       await Fiefdoms.connect(overlord).mint(vassal1.address)
       await Fiefdoms.connect(overlord).mint(vassal2.address)
+      await Fiefdoms.connect(overlord).mint(vassal3.address)
 
       fiefdom1Contract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
@@ -517,6 +521,13 @@ describe('Fiefdoms', () => {
       fiefdom2Contract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(2)
       )
+
+      fiefdom3Contract = await FiefdomArchetypeFactory.attach(
+        await Fiefdoms.connect(overlord).tokenIdToFiefdom(3)
+      )
+
+      hooksContract = await ERC721HooksFactory.deploy(fiefdom3Contract.address)
+      await hooksContract.deployed()
     })
 
     describe('initialize', () => {
@@ -564,8 +575,9 @@ describe('Fiefdoms', () => {
         await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, 1)
         await Fiefdoms.connect(vassal2)[safeTransferFrom](vassal2.address, vassal1.address, 2)
 
-        await fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
-        await fiefdom2Contract.connect(vassal1).activate('Newer Name', 'NEWER', 'CC0', 321, rndAddr)
+        await fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
+        await fiefdom2Contract.connect(vassal1).activate('Newer Name', 'NEWER', 'CC0', 321, rndAddr, zeroAddr)
+        await fiefdom3Contract.connect(vassal3).activate('Hooks Name', 'HOOKS', 'CC0', 456, rndAddr, hooksContract.address)
       })
 
       it('should reset contract name/symbol, license, maxSupply, tokenURIContract', async () => {
@@ -601,7 +613,7 @@ describe('Fiefdoms', () => {
 
       it('should revert if called a second time', async () => {
         await expectRevert(
-          fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr),
+          fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr),
           'Fiefdom has already been activated'
         )
       })
@@ -609,16 +621,60 @@ describe('Fiefdoms', () => {
       it('should revert if called by non-owner', async () => {
         await Fiefdoms.connect(overlord).mint(vassal1.address)
 
-        fiefdom3Contract = await FiefdomArchetypeFactory.attach(
-          await Fiefdoms.connect(overlord).tokenIdToFiefdom(3)
+        const fiefdom4Contract = await FiefdomArchetypeFactory.attach(
+          await Fiefdoms.connect(overlord).tokenIdToFiefdom(4)
         )
 
         await expectRevert(
-          fiefdom3Contract.connect(overlord).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr),
+          fiefdom4Contract.connect(overlord).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr),
           'Ownable: caller is not the owner'
         )
       })
 
+      describe.only("hooks", () => {
+        it('should call the transfer hook on mint', async () => {
+          const tx = await fiefdom3Contract.connect(vassal3).mint(vassal3.address, 1)
+          expect(tx)
+            .to.emit(hooksContract, "BeforeTokenTransferHookCalled")
+            .withArgs([0, vassal3.address, 1])
+        })
+
+        it('should call the transfer hook on transfer', async () => {
+          const tx = await fiefdom3Contract.connect(vassal3).transferFrom(vassal3.address, vassal1.address, 0)
+          expect(tx)
+            .to.emit(hooksContract, "BeforeTokenTransferHookCalled")
+            .withArgs([vassal3.address, vassal1.address, 0])
+        })
+
+        it('should call the approve hook', async () => {
+          const tx = await fiefdom3Contract.connect(vassal3).approve(vassal1.address, 0)
+          expect(tx)
+            .to.emit(hooksContract, "BeforeApproveHookCalled")
+            .withArgs([vassal1.address, 0])
+        })
+
+        it('should call the setApprovalForAll hook', async () => {
+          const tx = await fiefdom3Contract.connect(vassal3).setApprovalForAll(vassal1.address, true)
+          expect(tx)
+            .to.emit(hooksContract, "BeforeSetApprovalForAllHookCalled")
+            .withArgs([vassal1.address, true])
+        })
+
+        it('should fail to activate if hooks contract is not configured with the correct address', async () => {
+          await Fiefdoms.connect(overlord).mint(vassal4.address)
+          const fiefdom4Contract = await FiefdomArchetypeFactory.attach(
+            await Fiefdoms.connect(overlord).tokenIdToFiefdom(4)
+          )
+
+          const badHooksContract = await ERC721HooksFactory.deploy(zeroAddr)
+          await badHooksContract.deployed()
+
+          await expectRevert(
+            fiefdom4Contract.connect(vassal4).activate('Bad Hooks Name', 'BAD-HOOKS', 'CC0', 654, rndAddr, badHooksContract.address),
+            "Passed ERC721Hooks contract is not configured for this Fiefdom"
+          )
+        })
+      })
     })
 
     describe('owner', () => {
@@ -641,7 +697,7 @@ describe('Fiefdoms', () => {
 
     describe('mint', () => {
       it('should revert if not called by the minter', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await expectRevert(
           fiefdom1Contract.connect(vassal2).mint(vassal2.address, 1),
@@ -650,7 +706,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should allow minter to mint', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         fiefdom1Contract.connect(vassal1).setMinter(operator.address)
 
         await fiefdom1Contract.connect(operator).mint(vassal2.address, 1)
@@ -660,7 +716,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should mint to the correct address', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 1)
         await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 2)
@@ -676,7 +732,7 @@ describe('Fiefdoms', () => {
 
 
       it('should not allow minting beyond the maxSupply', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr, zeroAddr)
         await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 1)
         await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 2)
         await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 3)
@@ -691,7 +747,7 @@ describe('Fiefdoms', () => {
 
     describe('mintBatch', () => {
       it('should revert if not called by the minter', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await expectRevert(
           fiefdom1Contract.connect(vassal2).mintBatch([vassal2.address, vassal2.address], 1),
@@ -700,7 +756,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should allow minter to mint', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         fiefdom1Contract.connect(vassal1).setMinter(operator.address)
 
         await fiefdom1Contract.connect(operator).mintBatch([vassal2.address, vassal2.address], 1)
@@ -710,7 +766,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should mint to the correct address', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).mintBatch([vassal2.address, vassal2.address, operator.address], 1)
 
@@ -729,7 +785,7 @@ describe('Fiefdoms', () => {
 
 
       it('should not allow minting beyond the maxSupply', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr, zeroAddr)
 
         await expectRevert(
           fiefdom1Contract.connect(vassal1).mintBatch(times(5, () => vassal2.address), 1),
@@ -738,7 +794,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should not remint tokens', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 100, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 100, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 32)
 
@@ -751,7 +807,7 @@ describe('Fiefdoms', () => {
 
     describe('mintBatchTo', () => {
       it('should revert if not called by the minter', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await expectRevert(
           fiefdom1Contract.connect(vassal2).mintBatchTo(vassal2.address, 5, 1),
@@ -760,7 +816,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should allow minter to mint', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         fiefdom1Contract.connect(vassal1).setMinter(operator.address)
 
         await fiefdom1Contract.connect(operator).mintBatchTo(vassal2.address, 10, 1)
@@ -770,7 +826,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should mint to the correct address', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).mintBatchTo(vassal2.address, 3, 1)
         await fiefdom1Contract.connect(vassal1).mintBatchTo(operator.address, 3, 4)
@@ -796,7 +852,7 @@ describe('Fiefdoms', () => {
 
 
       it('should not allow minting beyond the maxSupply', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr, zeroAddr)
 
         await expectRevert(
           fiefdom1Contract.connect(vassal1).mintBatchTo(vassal2.address, 5, 1),
@@ -805,7 +861,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should not remint tokens', async () => {
-        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 100, rndAddr)
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 100, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 32)
 
@@ -834,7 +890,7 @@ describe('Fiefdoms', () => {
 
       it('should defer to the kingdom tokenURI contract before activation, or it set to 0x0', async () => {
         expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(await Fiefdoms.connect(vassal1).defaultTokenURIContract())
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(rndAddr)
         await fiefdom1Contract.connect(vassal1).setTokenURIContract(zeroAddr)
         expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(await Fiefdoms.connect(vassal1).defaultTokenURIContract())
@@ -845,22 +901,22 @@ describe('Fiefdoms', () => {
 
     describe('freezeTokenURI', () => {
       it('should freeze tokenURI contract', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
-        await fiefdom1Contract.connect(vassal1).freeszeTokenURI()
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
+        await fiefdom1Contract.connect(vassal1).freezeTokenURI()
         expect(await fiefdom1Contract.connect(vassal1).tokenURIFrozen()).to.equal(true)
       })
 
       it('should revert if fiefdom has not been activated', async () => {
         await expectRevert(
-          fiefdom1Contract.connect(vassal1).freeszeTokenURI(),
-          'Feifdom must be activated'
+          fiefdom1Contract.connect(vassal1).freezeTokenURI(),
+          'Fiefdom must be activated'
         )
       })
 
       it('should revert if called by non-owner', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         await expectRevert(
-          fiefdom1Contract.connect(overlord).freeszeTokenURI(),
+          fiefdom1Contract.connect(overlord).freezeTokenURI(),
           'Ownable: caller is not the owner'
         )
       })
@@ -869,7 +925,7 @@ describe('Fiefdoms', () => {
     describe('setMinter', () => {
 
       it('should update the minting address', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).setMinter(vassal2.address)
         expect(await fiefdom1Contract.connect(vassal1).minter()).to.equal(vassal2.address)
@@ -900,8 +956,8 @@ describe('Fiefdoms', () => {
       })
 
       it('should revert tokenURI has been frozen', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
-        await fiefdom1Contract.connect(vassal1).freeszeTokenURI()
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
+        await fiefdom1Contract.connect(vassal1).freezeTokenURI()
 
         await expectRevert(
           fiefdom1Contract.connect(vassal1).setTokenURIContract(zeroAddr),
@@ -913,7 +969,7 @@ describe('Fiefdoms', () => {
 
     describe('freezeMaxSupply', () => {
       it('should freeze maxSupply', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         await fiefdom1Contract.connect(vassal1).freezeMaxSupply()
         expect(await fiefdom1Contract.connect(vassal1).maxSupplyFrozen()).to.equal(true)
       })
@@ -921,12 +977,12 @@ describe('Fiefdoms', () => {
       it('should revert if fiefdom has not been activated', async () => {
         await expectRevert(
           fiefdom1Contract.connect(vassal1).freezeMaxSupply(),
-          'Feifdom must be activated'
+          'Fiefdom must be activated'
         )
       })
 
       it('should revert if called by non-owner', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         await expectRevert(
           fiefdom1Contract.connect(overlord).freezeMaxSupply(),
           'Ownable: caller is not the owner'
@@ -937,7 +993,7 @@ describe('Fiefdoms', () => {
     describe('setMaxSupply', () => {
 
       it('should update the license', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).setMaxSupply(500)
         expect(await fiefdom1Contract.connect(vassal1).maxSupply()).to.equal(500)
@@ -948,12 +1004,12 @@ describe('Fiefdoms', () => {
       it('should revert if fiefdom is not activated', async () => {
         await expectRevert(
           fiefdom1Contract.connect(vassal1).setMaxSupply(500),
-          'Feifdom must be activated'
+          'Fiefdom must be activated'
         )
       })
 
       it('should revert if new maxSupply is < totalSupply', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).mintBatchTo(vassal2.address, 10, 1)
 
@@ -965,7 +1021,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should revert if maxSupply is frozen', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         await fiefdom1Contract.connect(vassal1).freezeMaxSupply()
 
         await expectRevert(
@@ -975,7 +1031,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should revert if called by the non-owner', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         await expectRevert(
           fiefdom1Contract.connect(overlord).setMaxSupply(500),
           'Ownable: caller is not the owner'
