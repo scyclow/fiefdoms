@@ -109,7 +109,7 @@ describe('Fiefdoms', () => {
   })
 
   describe('activation', () => {
-    it.only('should revert', async () => {
+    it('should revert', async () => {
       await expectRevert.unspecified(
         Fiefdoms.connect(overlord).activation(0)
       )
@@ -985,7 +985,7 @@ describe('Fiefdoms', () => {
       })
 
       it('should emit BatchMetadataUpdate', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
 
         await fiefdom1Contract.connect(vassal1).mintBatchTo(vassal1.address, 5, 1)
         await fiefdom1Contract.connect(vassal1).setTokenURIContract(zeroAddr)
