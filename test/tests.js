@@ -631,7 +631,7 @@ describe('Fiefdoms', () => {
         )
       })
 
-      describe.only("hooks", () => {
+      describe("hooks", () => {
         it('should call the transfer hook on mint', async () => {
           const tx = await fiefdom3Contract.connect(vassal3).mint(vassal3.address, 1)
           expect(tx)
