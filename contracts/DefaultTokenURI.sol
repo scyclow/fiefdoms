@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.11;
+pragma solidity ^0.8.17;
 
 import "./Dependencies.sol";
 import "./Fiefdoms.sol";
@@ -13,7 +13,7 @@ contract DefaultTokenURI {
     FiefdomArchetype fiefdom = FiefdomArchetype(msg.sender);
 
 
-    bytes memory name = abi.encodePacked('Fiefdom ', fiefdom.fiefdom().toString(), ', Token ', tokenId.toString());
+    bytes memory name = abi.encodePacked('Fiefdom ', fiefdom.fiefdomId().toString(), ', Token ', tokenId.toString());
 
     bytes memory background = abi.encodePacked(
       '<rect x="0" y="0" width="100%" height="100%" fill="#000"/>',
@@ -23,7 +23,7 @@ contract DefaultTokenURI {
     bytes memory textFiefdom = abi.encodePacked(
       '<text x="50%" y="38%" class="t">',
       'Fiefdom ',
-      fiefdom.fiefdom().toString(),
+      fiefdom.fiefdomId().toString(),
       '</text>'
     );
 
