@@ -45,7 +45,7 @@ import "./ERC721Hooks.sol";
 import "./Dependencies.sol";
 import "./Fiefdoms.sol";
 
-pragma solidity ^0.8.11;
+pragma solidity ^0.8.17;
 
 interface ITokenURI {
   function tokenURI(uint256 tokenId) external view returns (string memory uri);
@@ -78,7 +78,7 @@ contract FiefdomArchetype is ERC721Burnable {
   address public minter;
 
   /// @notice ID of this fiefdom
-  uint256 public fiefdom;
+  uint256 public fiefdomId;
 
   /// @notice License of project
   string public license;
@@ -113,10 +113,12 @@ contract FiefdomArchetype is ERC721Burnable {
   /// @notice Emitted when a range of tokens has their metadata updated
   /// @param _fromTokenId The first ID of the token in the range
   /// @param _toTokenId The last ID of the token in the range
+  /// @dev See EIP-4906: https://eips.ethereum.org/EIPS/eip-4906
   event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
 
   /// @notice Emitted when a token's metadata is updated
   /// @param _tokenId The ID of the updated token
+  /// @dev See EIP-4906: https://eips.ethereum.org/EIPS/eip-4906
   event MetadataUpdate(uint256 _tokenId);
 
   /// @dev This is only called when the first archetype contract is initially published
@@ -124,26 +126,26 @@ contract FiefdomArchetype is ERC721Burnable {
     initialize(msg.sender, 0);
   }
 
-  /// @notice Initializes contract by minting token 0 and setting a default name and symbol
+  /// @notice Initializes contract by minting token 0 to itself and setting a default name and symbol
   /// @param _kingdom Address of the main Fiefdoms contract
-  /// @param _fiefdomTokenId Token ID of this fiefdom
+  /// @param _fiefdomId Token ID of this fiefdom
   /// @dev Called by the proxy contract immediately after a copy of this contract is published
-  function initialize(address _kingdom, uint256 _fiefdomTokenId) public {
+  function initialize(address _kingdom, uint256 _fiefdomId) public {
     require(!_isInitialized, "Can't initialize more than once");
     _isInitialized = true;
 
     // Since constructor is not called (or called the first time with empty values)
-    _name = string(abi.encodePacked('Fiefdom ', _fiefdomTokenId.toString()));
-    _symbol = string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()));
+    _name = string(abi.encodePacked('Fiefdom ', _fiefdomId.toString()));
+    _symbol = string(abi.encodePacked('FIEF', _fiefdomId.toString()));
     kingdom = Fiefdoms(_kingdom);
-    fiefdom = _fiefdomTokenId;
+    fiefdomId = _fiefdomId;
     foundedAt = block.timestamp;
 
     _totalSupply = 1;
     _mint(address(this), 0);
   }
 
-  /// @notice Instantiates the collection beyond the 0th mint
+  /// @notice Instantiates the collection beyond the 0th mint and sends the 0th token to the caller
   /// @param name_ Name to be set on collection
   /// @param symbol_ Symbol to be set on collection
   /// @param license_ License to be set on project
@@ -182,7 +184,7 @@ contract FiefdomArchetype is ERC721Burnable {
     // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
     emit MetadataUpdate(0);
-    kingdom.activation(fiefdom);
+    kingdom.activation(fiefdomId);
 
     // Set hooks if contract address provided
     if (address(erc721Hooks_) != address(0)) {
@@ -228,7 +230,7 @@ contract FiefdomArchetype is ERC721Burnable {
   /// @notice Contract owner
   /// @dev The owner of this contract is the owner of the corresponding fiefdom token
   function owner() public view virtual returns (address) {
-    return kingdom.ownerOf(fiefdom);
+    return kingdom.ownerOf(fiefdomId);
   }
 
   modifier onlyOwner() {
@@ -236,7 +238,7 @@ contract FiefdomArchetype is ERC721Burnable {
     _;
   }
 
-  /// @notice Transfers ownership of contract
+  /// @notice Notes a transfer in contract ownership
   /// @param previousOwner Previous owner of fiefdom token
   /// @param newOwner New owner of fiefdom token
   /// @dev Called by Fiefdoms whenever the corresponding fiefdom token is traded
@@ -256,6 +258,7 @@ contract FiefdomArchetype is ERC721Burnable {
   }
 
   /// @notice Checks if given token ID exists
+  /// @param tokenId Token to run existence check on
   /// @return True if token exists
   function exists(uint256 tokenId) external view returns (bool) {
     return _exists(tokenId);
@@ -367,6 +370,12 @@ contract FiefdomArchetype is ERC721Burnable {
     license = newLicense;
   }
 
+  /// @notice Sets minter address
+  /// @param newMinter Minter address to set
+  function setMinter(address newMinter) external onlyOwner {
+    minter = newMinter;
+  }
+
   /// @notice Sets royalty info for the collection
   /// @param royaltyBeneficiary Address to receive royalties
   /// @param royaltyBasisPoints Basis points of royalty commission
@@ -379,31 +388,27 @@ contract FiefdomArchetype is ERC721Burnable {
     _royaltyBasisPoints = royaltyBasisPoints;
   }
 
-  /// @notice Sets minter address
-  /// @param newMinter Minter address to set
-  function setMinter(address newMinter) external onlyOwner {
-    minter = newMinter;
-  }
-
   /// @notice Called with the sale price to determine how much royalty is owed and to whom.
-  /// @param _tokenId The NFT asset queried for royalty information (unused)
+  /// @param (unused)
   /// @param _salePrice The sale price of the NFT asset specified by _tokenId
   /// @return receiver Address of who should be sent the royalty payment
   /// @return royaltyAmount The royalty payment amount for _salePrice
   /// @dev See EIP-2981: https://eips.ethereum.org/EIPS/eip-2981
-  function royaltyInfo(uint256 _tokenId, uint256 _salePrice) external view returns (address, uint256) {
+  function royaltyInfo(uint256, uint256 _salePrice) external view returns (address, uint256) {
     return (_royaltyBeneficiary, _salePrice * _royaltyBasisPoints / 10000);
   }
 
   /// @notice Query if a contract implements an interface
-  /// @param interfaceID The interface identifier, as specified in ERC-165
-  /// @return `true` if the contract implements `interfaceID` and
-  ///         `interfaceID` is not 0xffffffff, `false` otherwise
+  /// @param interfaceId The interface identifier, as specified in ERC-165
+  /// @return `true` if the contract implements `interfaceId` and
+  ///         `interfaceId` is not 0xffffffff, `false` otherwise
   /// @dev Interface identification is specified in ERC-165. This function
   ///      uses less than 30,000 gas. See: https://eips.ethereum.org/EIPS/eip-165
-  function supportsInterface(bytes4 interfaceID) public view virtual override(ERC721) returns (bool) {
+  ///      See EIP-2981: https://eips.ethereum.org/EIPS/eip-2981
+  ///      See EIP-4906: https://eips.ethereum.org/EIPS/eip-4906
+  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721) returns (bool) {
     // ERC2981 & ERC4906
-    return interfaceID == bytes4(0x2a55205a) || interfaceID == bytes4(0x49064906) || super.supportsInterface(interfaceID);
+    return interfaceId == bytes4(0x2a55205a) || interfaceId == bytes4(0x49064906) || super.supportsInterface(interfaceId);
   }
 
   // Events

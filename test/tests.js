@@ -71,7 +71,7 @@ describe('Fiefdoms', () => {
       )
 
       expect(await fiefdomContract.connect(overlord).kingdom()).to.equal(Fiefdoms.address)
-      expect(Number(await fiefdomContract.connect(overlord).fiefdom())).to.equal(1)
+      expect(Number(await fiefdomContract.connect(overlord).fiefdomId())).to.equal(1)
       expect(await fiefdomContract.connect(overlord).owner()).to.equal(overlord.address)
 
       await Fiefdoms.connect(overlord)[safeTransferFrom](overlord.address, vassal1.address, 1)
@@ -203,23 +203,6 @@ describe('Fiefdoms', () => {
 
   })
 
-  describe('setLicense', () => {
-
-    it('should update the license', async () => {
-      await Fiefdoms.connect(overlord).setLicense('CC0')
-      expect(await Fiefdoms.connect(overlord).license()).to.equal('CC0')
-    })
-
-    it('should revert if called by the non-owner', async () => {
-      await expectRevert(
-        Fiefdoms.connect(vassal1).setLicense('CC0'),
-        'Ownable: caller is not the owner'
-      )
-    })
-
-  })
-
-
   describe('setMinter', () => {
 
     it('should update the minting address', async () => {
@@ -330,7 +313,7 @@ describe('Fiefdoms', () => {
 
       const fiefdom10Contract = await FiefdomArchetypeFactory.attach(fiefdom10)
 
-      expect(await fiefdom10Contract.connect(vassal1).fiefdom()).to.equal(10)
+      expect(await fiefdom10Contract.connect(vassal1).fiefdomId()).to.equal(10)
 
     })
 
@@ -424,36 +407,36 @@ describe('Fiefdoms', () => {
 
   describe('allow listing', () => {
 
-    describe('updateAllowList', () => {
+    describe('updateOperatorAllowList', () => {
 
       it('should work', async () => {
-        expect(await Fiefdoms.connect(overlord).allowList(vassal1.address)).to.equal(false)
-        Fiefdoms.connect(overlord).updateAllowList(vassal1.address, true)
-        expect(await Fiefdoms.connect(overlord).allowList(vassal1.address)).to.equal(true)
-        Fiefdoms.connect(overlord).updateAllowList(vassal1.address, false)
-        expect(await Fiefdoms.connect(overlord).allowList(vassal1.address)).to.equal(false)
+        expect(await Fiefdoms.connect(overlord).operatorAllowList(vassal1.address)).to.equal(false)
+        Fiefdoms.connect(overlord).updateOperatorAllowList(vassal1.address, true)
+        expect(await Fiefdoms.connect(overlord).operatorAllowList(vassal1.address)).to.equal(true)
+        Fiefdoms.connect(overlord).updateOperatorAllowList(vassal1.address, false)
+        expect(await Fiefdoms.connect(overlord).operatorAllowList(vassal1.address)).to.equal(false)
       })
 
-      it('should revert if non-owner attempts to add an address to the allowList', async () => {
+      it('should revert if non-owner attempts to add an address to the operatorAllowList', async () => {
         await expectRevert(
-          Fiefdoms.connect(vassal1).updateAllowList(vassal1.address, true),
+          Fiefdoms.connect(vassal1).updateOperatorAllowList(vassal1.address, true),
           'Ownable: caller is not the owner'
         )
       })
 
     })
 
-    describe('updateUseAllowList', () => {
+    describe('updateUseOperatorAllowList', () => {
 
       it('should work', async () => {
-        expect(await Fiefdoms.connect(overlord).useAllowList()).to.equal(true)
-        Fiefdoms.connect(overlord).updateUseAllowList(false)
-        expect(await Fiefdoms.connect(overlord).useAllowList()).to.equal(false)
+        expect(await Fiefdoms.connect(overlord).useOperatorAllowList()).to.equal(true)
+        Fiefdoms.connect(overlord).updateUseOperatorAllowList(false)
+        expect(await Fiefdoms.connect(overlord).useOperatorAllowList()).to.equal(false)
       })
 
-      it('should revert if non-owner attempts to turn the allowList off', async () => {
+      it('should revert if non-owner attempts to turn the operatorAllowList off', async () => {
         await expectRevert(
-          Fiefdoms.connect(vassal1).updateUseAllowList(false),
+          Fiefdoms.connect(vassal1).updateUseOperatorAllowList(false),
           'Ownable: caller is not the owner'
         )
       })
@@ -464,8 +447,8 @@ describe('Fiefdoms', () => {
       beforeEach(async () => {
         await Fiefdoms.connect(overlord).mint(vassal1.address)
         await Fiefdoms.connect(overlord).mint(vassal1.address)
-        await Fiefdoms.connect(overlord).updateUseAllowList(true)
-        await Fiefdoms.connect(overlord).updateAllowList(operator.address, true)
+        await Fiefdoms.connect(overlord).updateUseOperatorAllowList(true)
+        await Fiefdoms.connect(overlord).updateOperatorAllowList(operator.address, true)
       })
 
       it('should revert if someone tries to approve a non-ALed operator', async () => {
@@ -493,12 +476,12 @@ describe('Fiefdoms', () => {
 
 
       it('should revert if non-ALed operators were previousely approved', async () => {
-        await Fiefdoms.connect(overlord).updateUseAllowList(false)
+        await Fiefdoms.connect(overlord).updateUseOperatorAllowList(false)
 
         Fiefdoms.connect(vassal1).approve(vassal2.address, 1)
         Fiefdoms.connect(vassal1).setApprovalForAll(vassal2.address)
 
-        await Fiefdoms.connect(overlord).updateUseAllowList(true)
+        await Fiefdoms.connect(overlord).updateUseOperatorAllowList(true)
 
         await expectRevert(
           Fiefdoms.connect(vassal2)[safeTransferFrom](vassal1.address, vassal2.address, 1),
@@ -510,8 +493,8 @@ describe('Fiefdoms', () => {
     describe('allow list is inactive', () => {
 
       beforeEach(async () => {
-        await Fiefdoms.connect(overlord).updateUseAllowList(false)
-        await Fiefdoms.connect(overlord).updateAllowList(operator.address, true)
+        await Fiefdoms.connect(overlord).updateUseOperatorAllowList(false)
+        await Fiefdoms.connect(overlord).updateOperatorAllowList(operator.address, true)
         await Fiefdoms.connect(overlord).mint(vassal1.address)
         await Fiefdoms.connect(overlord).mint(vassal1.address)
       })
@@ -557,8 +540,8 @@ describe('Fiefdoms', () => {
     describe('initialize', () => {
 
       it('should store the kingdom contract + fiefdom id', async () => {
-        expect(await fiefdom1Contract.connect(overlord).fiefdom()).to.equal(1)
-        expect(await fiefdom2Contract.connect(overlord).fiefdom()).to.equal(2)
+        expect(await fiefdom1Contract.connect(overlord).fiefdomId()).to.equal(1)
+        expect(await fiefdom2Contract.connect(overlord).fiefdomId()).to.equal(2)
 
         expect(await fiefdom1Contract.connect(overlord).kingdom()).to.equal(Fiefdoms.address)
         expect(await fiefdom2Contract.connect(overlord).kingdom()).to.equal(Fiefdoms.address)
@@ -746,7 +729,7 @@ describe('Fiefdoms', () => {
         fiefdom1Contract.connect(vassal1).setMinter(operator.address)
 
         await fiefdom1Contract.connect(operator).mint(vassal2.address, 1)
-        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdom())
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdomId())
         await fiefdom1Contract.connect(operator).mint(vassal2.address, 2)
 
       })
@@ -796,7 +779,7 @@ describe('Fiefdoms', () => {
         fiefdom1Contract.connect(vassal1).setMinter(operator.address)
 
         await fiefdom1Contract.connect(operator).mintBatch([vassal2.address, vassal2.address], 1)
-        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdom())
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdomId())
         await fiefdom1Contract.connect(operator).mintBatch([vassal2.address, vassal2.address], 3)
 
       })
@@ -856,7 +839,7 @@ describe('Fiefdoms', () => {
         fiefdom1Contract.connect(vassal1).setMinter(operator.address)
 
         await fiefdom1Contract.connect(operator).mintBatchTo(vassal2.address, 10, 1)
-        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdom())
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdomId())
         await fiefdom1Contract.connect(operator).mintBatchTo(vassal2.address, 10, 11)
 
       })
