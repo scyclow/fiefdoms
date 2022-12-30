@@ -1,12 +1,44 @@
 // SPDX-License-Identifier: MIT
 
+/*
+ ________  _____  ________  ________  ______      ___   ____    ____
+|_   __  ||_   _||_   __  ||_   __  ||_   _ `.  .'   `.|_   \  /   _|
+  | |_ \_|  | |    | |_ \_|  | |_ \_|  | | `. \/  .-.  \ |   \/   |
+  |  _|     | |    |  _| _   |  _|     | |  | || |   | | | |\  /| |
+ _| |_     _| |_  _| |__/ | _| |_     _| |_.' /\  `-'  /_| |_\/_| |_
+|_____|   |_____||________||_____|   |______.'  `.___.'|_____||_____|
+ ___  ____   _____  ____  _____   ______  ______      ___   ____    ____
+|_  ||_  _| |_   _||_   \|_   _|.' ___  ||_   _ `.  .'   `.|_   \  /   _|
+  | |_/ /     | |    |   \ | | / .'   \_|  | | `. \/  .-.  \ |   \/   |
+  |  __'.     | |    | |\ \| | | |   ____  | |  | || |   | | | |\  /| |
+ _| |  \ \_  _| |_  _| |_\   |_\ `.___]  |_| |_.' /\  `-'  /_| |_\/_| |_
+|____||____||_____||_____|\____|`._____.'|______.'  `.___.'|_____||_____|
+
+by steviep.eth (2022)
+
+
+The Fiefdoms Kingdom is an ERC721 collection of 721 Vassal tokens.
+
+Each Vassal token gives the token holder ownership over a separate, unique ERC721
+contract (a "Fiefdom").
+
+Transfering a Vassal token will also transfer ownership over that Fiefdom.
+
+Minting a Vassal token will create a proxy contract, which inherets all of its behavior
+from the Fiefdom Archetype.
+
+Vassal #0 controls the domain of the Fiefdom Archetype directly.
+
+Fiefdoms may collect own royalties without restriction on all tokens within their domain,
+but Vassal tokens are subject to the strict trading rules of the broader kingdom.
+
+*/
+
 import "./Dependencies.sol";
 import "./BaseTokenURI.sol";
 import "./DefaultTokenURI.sol";
-import "./ProxyFiefdom.sol";
+import "./FiefdomProxy.sol";
 import "./FiefdomArchetype.sol";
-
-import "hardhat/console.sol";
 
 pragma solidity ^0.8.11;
 
@@ -66,7 +98,7 @@ contract Fiefdoms is ERC721, Ownable {
     _mint(to, _totalSupply);
 
     // Publish a new proxy contract for this token
-    ProxyFiefdom proxy = new ProxyFiefdom();
+    FiefdomProxy proxy = new FiefdomProxy();
     tokenIdToFiefdom[_totalSupply] = address(proxy);
 
     _totalSupply += 1;
@@ -79,7 +111,7 @@ contract Fiefdoms is ERC721, Ownable {
 
     for (uint256 i; i < amount; i++) {
       _mint(to, _totalSupply + i);
-      ProxyFiefdom proxy = new ProxyFiefdom();
+      FiefdomProxy proxy = new FiefdomProxy();
       tokenIdToFiefdom[_totalSupply + i] = address(proxy);
     }
 
@@ -170,6 +202,18 @@ contract Fiefdoms is ERC721, Ownable {
     return address(_tokenURIContract);
   }
 
+  // Contract owner actions
+  function setLicense(string calldata newLicense) external onlyOwner {
+    license = newLicense;
+  }
+
+  function setMinter(address newMinter) external onlyOwner {
+    minter = newMinter;
+  }
+
+  function overlord() external view returns (address) {
+    return owner();
+  }
 
   // Events
   function emitTokenEvent(uint256 tokenId, string calldata eventType, string calldata content) external {
@@ -182,20 +226,6 @@ contract Fiefdoms is ERC721, Ownable {
 
   function emitProjectEvent(string calldata eventType, string calldata content) external onlyOwner {
     emit ProjectEvent(_msgSender(), eventType, content);
-  }
-
-
-  // Contract owner actions
-  function updateLicense(string calldata newLicense) external onlyOwner {
-    license = newLicense;
-  }
-
-  function setMinter(address newMinter) external onlyOwner {
-    minter = newMinter;
-  }
-
-  function overlord() external view returns (address) {
-    return owner();
   }
 }
 

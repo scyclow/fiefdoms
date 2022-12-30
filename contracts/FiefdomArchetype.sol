@@ -1,12 +1,50 @@
 // SPDX-License-Identifier: MIT
 
+/*
+ ________  _____  ________  ________  ______      ___   ____    ____
+|_   __  ||_   _||_   __  ||_   __  ||_   _ `.  .'   `.|_   \  /   _|
+  | |_ \_|  | |    | |_ \_|  | |_ \_|  | | `. \/  .-.  \ |   \/   |
+  |  _|     | |    |  _| _   |  _|     | |  | || |   | | | |\  /| |
+ _| |_     _| |_  _| |__/ | _| |_     _| |_.' /\  `-'  /_| |_\/_| |_
+|_____|   |_____||________||_____|   |______.'  `.___.'|_____||_____|
+      _       _______      ______  ____  ____  ________  _________  ____  ____  _______  ________
+     / \     |_   __ \   .' ___  ||_   ||   _||_   __  ||  _   _  ||_  _||_  _||_   __ \|_   __  |
+    / _ \      | |__) | / .'   \_|  | |__| |    | |_ \_||_/ | | \_|  \ \  / /    | |__) | | |_ \_|
+   / ___ \     |  __ /  | |         |  __  |    |  _| _     | |       \ \/ /     |  ___/  |  _| _
+ _/ /   \ \_  _| |  \ \_\ `.___.'\ _| |  | |_  _| |__/ |   _| |_      _|  |_    _| |_    _| |__/ |
+|____| |____||____| |___|`.____ .'|____||____||________|  |_____|    |______|  |_____|  |________|
 
+by steviep.eth (2022)
+
+
+All Fiefdom Proxy contracts inheret the behavior of the Fiefdom Archetype.
+
+Upon publication, a fiefdom contract will set a placeholder name and symbol, record the timestamp
+of its founding at, and will mint token #0 to itself.
+
+Ownership over the Fiefdom will follow the owner of the corrsponding Vassal token, which is manage by
+the Fiefdom Kingdom contract.
+
+At any point, the Vassal owner may choose to activate the Fiefdom. This will set the contract's name,
+symbol, license, max supply of tokens, and tokenURI contract. While name and symbol are fixed, maxSupply
+and tokenURIContract can be updated later. maxSupply and tokenURI can also be frozen by the Vassal owner.
+
+Additionally, the Vassal owner my activate the fiefdom with activateWitHooks. This also accepts a contract
+that defines the behavior of transfer and approval hooks.
+
+The Vassal owner will be the default minter of the contract, but can also set the minter to another
+address. In pactice, the minter will be a separate minting contract. The minter can mint tokens using
+any of three methods: mint, mintBatch, and mintBatchTo.
+
+If set to 0x0, tokenURI logic will default to the default token URI contract set at the kingdom level. Otherwise,
+the Fiefdom may freely change its token URI contract.
+
+*/
 
 import "./DefaultTokenURI.sol";
 import "./BaseTokenURI.sol";
 import "./ERC721Hooks.sol";
 import "./Dependencies.sol";
-
 
 pragma solidity ^0.8.11;
 
@@ -25,9 +63,11 @@ contract FiefdomArchetype is ERC721 {
   IBaseContract public kingdom;
   IERC721Hooks public erc721Hooks;
 
+  bool public isActivated;
+  bool public tokenURIFrozen;
+  bool public maxSupplyFrozen;
   address public minter;
   uint256 public fiefdom;
-  bool public isActivated;
   string public license;
   uint256 public maxSupply;
   uint256 public foundedAt;
@@ -166,6 +206,8 @@ contract FiefdomArchetype is ERC721 {
     return _symbol;
   }
 
+  // MINTING
+
   function mint(address to, uint256 tokenId) external {
     require(minter == msg.sender, 'Caller is not the minting address');
     require(_totalSupply < maxSupply, 'Cannot create more tokens');
@@ -199,21 +241,6 @@ contract FiefdomArchetype is ERC721 {
     _totalSupply += amount;
   }
 
-
-  // Events
-  function emitTokenEvent(uint256 tokenId, string calldata eventType, string calldata content) external {
-    require(
-      owner() == _msgSender() || ERC721.ownerOf(tokenId) == _msgSender(),
-      'Only project or token owner can emit token event'
-    );
-    emit TokenEvent(_msgSender(), tokenId, eventType, content);
-  }
-
-  function emitProjectEvent(string calldata eventType, string calldata content) external onlyOwner {
-    emit ProjectEvent(_msgSender(), eventType, content);
-  }
-
-
   // Token URI
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
     return ITokenURI(tokenURIContract()).tokenURI(tokenId);
@@ -226,11 +253,29 @@ contract FiefdomArchetype is ERC721 {
   }
 
   function setTokenURIContract(address tokenURIContract_) external onlyOwner {
+    require(!tokenURIFrozen, 'Token URI has been frozen');
     _tokenURIContract = tokenURIContract_;
   }
 
+  function freeszeTokenURI() external onlyOwner {
+    require(isActivated, 'Feifdom must be activated');
+    tokenURIFrozen = true;
+  }
+
   // Contract owner actions
-  function updateLicense(string calldata newLicense) external onlyOwner {
+  function freezeMaxSupply() external onlyOwner {
+    require(isActivated, 'Feifdom must be activated');
+    maxSupplyFrozen = true;
+  }
+
+  function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
+    require(isActivated, 'Feifdom must be activated');
+    require(newMaxSupply >= _totalSupply, 'maxSupply must be >= than totalSupply');
+    require(!maxSupplyFrozen, 'maxSupply has been frozen');
+    maxSupply = newMaxSupply;
+  }
+
+  function setLicense(string calldata newLicense) external onlyOwner {
     license = newLicense;
   }
 
@@ -254,6 +299,19 @@ contract FiefdomArchetype is ERC721 {
   function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721) returns (bool) {
     // ERC2981
     return interfaceId == bytes4(0x2a55205a) || super.supportsInterface(interfaceId);
+  }
+
+  // Events
+  function emitTokenEvent(uint256 tokenId, string calldata eventType, string calldata content) external {
+    require(
+      owner() == _msgSender() || ERC721.ownerOf(tokenId) == _msgSender(),
+      'Only project or token owner can emit token event'
+    );
+    emit TokenEvent(_msgSender(), tokenId, eventType, content);
+  }
+
+  function emitProjectEvent(string calldata eventType, string calldata content) external onlyOwner {
+    emit ProjectEvent(_msgSender(), eventType, content);
   }
 }
 

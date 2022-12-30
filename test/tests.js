@@ -176,16 +176,16 @@ describe('Fiefdoms', () => {
 
   })
 
-  describe('updateLicense', () => {
+  describe('setLicense', () => {
 
     it('should update the license', async () => {
-      await Fiefdoms.connect(overlord).updateLicense('CC0')
+      await Fiefdoms.connect(overlord).setLicense('CC0')
       expect(await Fiefdoms.connect(overlord).license()).to.equal('CC0')
     })
 
     it('should revert if called by the non-owner', async () => {
       await expectRevert(
-        Fiefdoms.connect(vassal1).updateLicense('CC0'),
+        Fiefdoms.connect(vassal1).setLicense('CC0'),
         'Ownable: caller is not the owner'
       )
     })
@@ -582,6 +582,11 @@ describe('Fiefdoms', () => {
         expect(royaltyInfo[1]).to.equal(10)
       })
 
+      it('should not freeze maxSupply or tokenURI', async () => {
+        expect(await fiefdom1Contract.connect(vassal2).tokenURIFrozen()).to.equal(false)
+        expect(await fiefdom1Contract.connect(vassal2).maxSupplyFrozen()).to.equal(false)
+      })
+
       it('should transfer the 0 token to the caller', async () => {
         expect(await fiefdom1Contract.connect(vassal2).ownerOf(0)).to.equal(vassal2.address)
         expect(await fiefdom1Contract.connect(vassal2).balanceOf(vassal2.address)).to.equal(1)
@@ -831,6 +836,28 @@ describe('Fiefdoms', () => {
 
     })
 
+    describe('freezeTokenURI', () => {
+      it('should freeze tokenURI contract', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).freeszeTokenURI()
+        expect(await fiefdom1Contract.connect(vassal1).tokenURIFrozen()).to.equal(true)
+      })
+
+      it('should revert if fiefdom has not been activated', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).freeszeTokenURI(),
+          'Feifdom must be activated'
+        )
+      })
+
+      it('should revert if called by non-owner', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).freeszeTokenURI(),
+          'Ownable: caller is not the owner'
+        )
+      })
+    })
 
     describe('setMinter', () => {
 
@@ -865,17 +892,100 @@ describe('Fiefdoms', () => {
         )
       })
 
+      it('should revert tokenURI has been frozen', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).freeszeTokenURI()
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).setTokenURIContract(zeroAddr),
+          'Token URI has been frozen'
+        )
+      })
+
     })
 
-    describe('updateLicense', () => {
+    describe('freezeMaxSupply', () => {
+      it('should freeze maxSupply', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).freezeMaxSupply()
+        expect(await fiefdom1Contract.connect(vassal1).maxSupplyFrozen()).to.equal(true)
+      })
+
+      it('should revert if fiefdom has not been activated', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).freezeMaxSupply(),
+          'Feifdom must be activated'
+        )
+      })
+
+      it('should revert if called by non-owner', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).freezeMaxSupply(),
+          'Ownable: caller is not the owner'
+        )
+      })
+    })
+
+    describe('setMaxSupply', () => {
+
       it('should update the license', async () => {
-        await fiefdom1Contract.connect(vassal1).updateLicense('CC0')
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).setMaxSupply(500)
+        expect(await fiefdom1Contract.connect(vassal1).maxSupply()).to.equal(500)
+        await fiefdom1Contract.connect(vassal1).setMaxSupply(12)
+        expect(await fiefdom1Contract.connect(vassal1).maxSupply()).to.equal(12)
+      })
+
+      it('should revert if fiefdom is not activated', async () => {
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).setMaxSupply(500),
+          'Feifdom must be activated'
+        )
+      })
+
+      it('should revert if new maxSupply is < totalSupply', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).mintBatchTo(vassal2.address, 10, 1)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).setMaxSupply(10),
+          'maxSupply must be >= than totalSupply'
+        )
+        await fiefdom1Contract.connect(vassal1).setMaxSupply(11)
+      })
+
+      it('should revert if maxSupply is frozen', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).freezeMaxSupply()
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).setMaxSupply(500),
+          'maxSupply has been frozen'
+        )
+      })
+
+      it('should revert if called by the non-owner', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await expectRevert(
+          fiefdom1Contract.connect(overlord).setMaxSupply(500),
+          'Ownable: caller is not the owner'
+        )
+      })
+
+    })
+
+    describe('setLicense', () => {
+      it('should update the license', async () => {
+        await fiefdom1Contract.connect(vassal1).setLicense('CC0')
         expect(await fiefdom1Contract.connect(vassal1).license()).to.equal('CC0')
       })
 
       it('should revert if called by the non-owner', async () => {
         await expectRevert(
-          fiefdom1Contract.connect(overlord).updateLicense('CC0'),
+          fiefdom1Contract.connect(overlord).setLicense('CC0'),
           'Ownable: caller is not the owner'
         )
       })
