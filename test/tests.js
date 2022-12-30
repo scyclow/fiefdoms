@@ -608,7 +608,7 @@ describe('Fiefdoms', () => {
         const events = (await Fiefdoms.queryFilter({
           address: Fiefdoms.address,
           topics: []
-        })).slice(-4)
+        }))
 
         expect(events.some(e => e.event === 'MetadataUpdate' && Number(e.args[0]) === 1)).to.equal(true)
         expect(events.some(e => e.event === 'Activation' && Number(e.args[0]) === 1)).to.equal(true)
@@ -669,31 +669,31 @@ describe('Fiefdoms', () => {
 
       describe("hooks", () => {
         it('should call the transfer hook on mint', async () => {
-          const tx = await fiefdom3Contract.connect(vassal3).mint(vassal3.address, 1)
-          expect(tx)
+          const txPromise = fiefdom3Contract.connect(vassal3).mint(vassal3.address, 1)
+          await expect(txPromise)
             .to.emit(hooksContract, "BeforeTokenTransferHookCalled")
-            .withArgs([0, vassal3.address, 1])
+            .withArgs(zeroAddr, vassal3.address, 1)
         })
 
         it('should call the transfer hook on transfer', async () => {
-          const tx = await fiefdom3Contract.connect(vassal3).transferFrom(vassal3.address, vassal1.address, 0)
-          expect(tx)
+          const txPromise = fiefdom3Contract.connect(vassal3).transferFrom(vassal3.address, vassal1.address, 0)
+          await expect(txPromise)
             .to.emit(hooksContract, "BeforeTokenTransferHookCalled")
-            .withArgs([vassal3.address, vassal1.address, 0])
+            .withArgs(vassal3.address, vassal1.address, 0)
         })
 
         it('should call the approve hook', async () => {
-          const tx = await fiefdom3Contract.connect(vassal3).approve(vassal1.address, 0)
-          expect(tx)
+          const txPromise = fiefdom3Contract.connect(vassal3).approve(vassal1.address, 0)
+          await expect(txPromise)
             .to.emit(hooksContract, "BeforeApproveHookCalled")
-            .withArgs([vassal1.address, 0])
+            .withArgs(vassal1.address, 0)
         })
 
         it('should call the setApprovalForAll hook', async () => {
-          const tx = await fiefdom3Contract.connect(vassal3).setApprovalForAll(vassal1.address, true)
-          expect(tx)
+          const txPromise = fiefdom3Contract.connect(vassal3).setApprovalForAll(vassal1.address, true)
+          await expect(txPromise)
             .to.emit(hooksContract, "BeforeSetApprovalForAllHookCalled")
-            .withArgs([vassal1.address, true])
+            .withArgs(vassal1.address, true)
         })
 
         it('should fail to activate if hooks contract is not configured with the correct address', async () => {

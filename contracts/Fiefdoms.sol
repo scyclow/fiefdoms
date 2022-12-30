@@ -226,14 +226,14 @@ contract Fiefdoms is ERC721, Ownable {
   // Events
   function emitTokenEvent(uint256 tokenId, string calldata eventType, string calldata content) external {
     require(
-      owner() == _msgSender() || ERC721.ownerOf(tokenId) == _msgSender(),
+      owner() == msg.sender || ERC721.ownerOf(tokenId) == msg.sender,
       'Only project or token owner can emit token event'
     );
-    emit TokenEvent(_msgSender(), tokenId, eventType, content);
+    emit TokenEvent(msg.sender, tokenId, eventType, content);
   }
 
   function emitProjectEvent(string calldata eventType, string calldata content) external onlyOwner {
-    emit ProjectEvent(_msgSender(), eventType, content);
+    emit ProjectEvent(msg.sender, eventType, content);
   }
 }
 
