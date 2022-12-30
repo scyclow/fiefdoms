@@ -117,10 +117,10 @@ describe('Fiefdoms', () => {
       expect(getJsonURI(beforeURI).name).to.equal('Fiefdom Vassal #0')
       expect(getJsonURI(beforeURI).description).to.equal('Unactivated Fiefdom Vassal #0 of ' + FiefdomArchetype.address.toLowerCase())
       expect(getJsonURI(beforeURI).external_url).to.equal('https://steviep.xyz/fiefdoms')
-      expect(getJsonURI(beforeURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal(false)
-      expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal(true)
+      expect(getJsonURI(beforeURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal('false')
+      expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal('true')
       expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Fiefdom').value.toLowerCase()).to.equal(FiefdomArchetype.address.toLowerCase())
-      expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Founded At').value).to.be.closeTo(Number(archetypeFounded), 2)
+      expect(Number(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Founded At').value)).to.be.closeTo(Number(archetypeFounded), 2)
       expect(getJsonURI(afterURI).description).to.equal('Activated Fiefdom Vassal #0 of ' + FiefdomArchetype.address.toLowerCase())
 
 
@@ -135,7 +135,7 @@ describe('Fiefdoms', () => {
       const fiefdom1URI = await Fiefdoms.connect(overlord).tokenURI(1)
       expect(getJsonURI(fiefdom1URI).description).to.equal('Unactivated Fiefdom Vassal #1 of ' + fiefdomContract.address.toLowerCase())
       expect(getJsonURI(fiefdom1URI).attributes.find(attr => attr.trait_type === 'Fiefdom').value.toLowerCase()).to.equal(fiefdomContract.address.toLowerCase())
-      expect(getJsonURI(fiefdom1URI).attributes.find(attr => attr.trait_type === 'Founded At').value).to.be.closeTo(theFuture, 2)
+      expect(Number(getJsonURI(fiefdom1URI).attributes.find(attr => attr.trait_type === 'Founded At').value)).to.be.closeTo(theFuture, 2)
 
       // console.log(beforeURI)
       // console.log(getSVG(beforeURI))

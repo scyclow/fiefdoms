@@ -28,12 +28,12 @@ contract BaseTokenURI {
 
     bytes memory attributes = abi.encodePacked(
       '[{"trait_type": "Activated", "value":',
-      isActivated ? 'true' : 'false',
+      isActivated ? '"true"' : '"false"',
       '},{"trait_type": "Fiefdom", "value": "0x',
       toString(fiefdomAddr),
-      '"},{"trait_type": "Founded At", "value": ',
+      '"},{"trait_type": "Founded At", "value": "',
       foundedAt.toString(),
-      '}]'
+      '"}]'
     );
 
 
