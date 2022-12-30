@@ -7,7 +7,7 @@ async function main() {
   Fiefdoms = await FiefdomsFactory.deploy()
   await Fiefdoms.deployed()
 
-  await Fiefdoms.connect(fiefdomLord).mint(fiefdomLord.address)
+  await Fiefdoms.connect(fiefdomLord).mintBatch(fiefdomLord.address, 20)
 
 }
 

@@ -225,9 +225,9 @@ contract FiefdomArchetype is ERC721 {
 
     for (uint256 i; i < amount; i++) {
       _mint(to[i], tokenIdStart + i);
+      _totalSupply++;
     }
 
-    _totalSupply += amount;
   }
 
   function mintBatchTo(address to, uint256 amount, uint256 tokenIdStart) external {
@@ -236,9 +236,8 @@ contract FiefdomArchetype is ERC721 {
 
     for (uint256 i; i < amount; i++) {
       _mint(to, tokenIdStart + i);
+      _totalSupply++;
     }
-
-    _totalSupply += amount;
   }
 
   // Token URI
