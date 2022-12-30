@@ -79,6 +79,7 @@ contract FiefdomArchetype is ERC721 {
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
   event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
+  event MetadataUpdate(uint256 _tokenId);
 
   // This is only called when the archetype contract is published
   constructor() ERC721('', '') {
@@ -133,6 +134,7 @@ contract FiefdomArchetype is ERC721 {
 
     // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
+    emit MetadataUpdate(0);
     kingdom.activation(fiefdom);
   }
 
