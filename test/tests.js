@@ -108,6 +108,14 @@ describe('Fiefdoms', () => {
 
   })
 
+  describe('activation', () => {
+    it.only('should revert', async () => {
+      await expectRevert.unspecified(
+        Fiefdoms.connect(overlord).activation(0)
+      )
+    })
+  })
+
   describe('tokenURI', () => {
 
     it('should work', async () => {
@@ -159,6 +167,22 @@ describe('Fiefdoms', () => {
         Fiefdoms.connect(vassal1).setTokenURIContract(zeroAddr),
         'Ownable: caller is not the owner'
       )
+    })
+
+    it('should emit BatchMetadataUpdate', async () => {
+      await Fiefdoms.connect(overlord).mintBatch(vassal1.address, 5)
+      await Fiefdoms.connect(overlord).setTokenURIContract(zeroAddr)
+
+      const events = await Fiefdoms.queryFilter({
+        address: Fiefdoms.address,
+        topics: []
+      })
+
+      const latestEvent = events[events.length-1]
+
+      expect(latestEvent.event).to.equal('BatchMetadataUpdate')
+      expect(Number(latestEvent.args[0])).to.equal(0)
+      expect(Number(latestEvent.args[1])).to.equal(6)
     })
 
   })
@@ -580,6 +604,18 @@ describe('Fiefdoms', () => {
         await fiefdom3Contract.connect(vassal3).activate('Hooks Name', 'HOOKS', 'CC0', 456, rndAddr, hooksContract.address)
       })
 
+      it('should emit events on Fiefdoms', async () => {
+        const events = (await Fiefdoms.queryFilter({
+          address: Fiefdoms.address,
+          topics: []
+        })).slice(-4)
+
+        expect(events.some(e => e.event === 'MetadataUpdate' && Number(e.args[0]) === 1)).to.equal(true)
+        expect(events.some(e => e.event === 'Activation' && Number(e.args[0]) === 1)).to.equal(true)
+        expect(events.some(e => e.event === 'MetadataUpdate' && Number(e.args[0]) === 2)).to.equal(true)
+        expect(events.some(e => e.event === 'Activation' && Number(e.args[0]) === 2)).to.equal(true)
+      })
+
       it('should reset contract name/symbol, license, maxSupply, tokenURIContract', async () => {
         expect(await fiefdom1Contract.connect(vassal2).name()).to.equal('New Name')
         expect(await fiefdom1Contract.connect(vassal2).symbol()).to.equal('NEW')
@@ -948,6 +984,24 @@ describe('Fiefdoms', () => {
         expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(rndAddr)
       })
 
+      it('should emit BatchMetadataUpdate', async () => {
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).mintBatchTo(vassal1.address, 5, 1)
+        await fiefdom1Contract.connect(vassal1).setTokenURIContract(zeroAddr)
+
+        const events = await fiefdom1Contract.queryFilter({
+          address: fiefdom1Contract.address,
+          topics: []
+        })
+
+        const latestEvent = events[events.length-1]
+
+        expect(latestEvent.event).to.equal('BatchMetadataUpdate')
+        expect(Number(latestEvent.args[0])).to.equal(0)
+        expect(Number(latestEvent.args[1])).to.equal(6)
+      })
+
       it('should revert if called by the non-owner', async () => {
         await expectRevert(
           fiefdom1Contract.connect(overlord).setTokenURIContract(zeroAddr),
@@ -955,7 +1009,8 @@ describe('Fiefdoms', () => {
         )
       })
 
-      it('should revert tokenURI has been frozen', async () => {
+
+      it('should revert if tokenURI has been frozen', async () => {
         await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr, zeroAddr)
         await fiefdom1Contract.connect(vassal1).freezeTokenURI()
 
