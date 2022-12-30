@@ -5,6 +5,7 @@ pragma solidity ^0.8.11;
 import "./Dependencies.sol";
 
 interface IERC721Hooks {
+  function parent() external returns (address);
   function beforeTokenTransfer(address from, address to, uint256 tokenId) external;
   function beforeApprove(address to, uint256 tokenId) external;
   function beforeSetApprovalForAll(address operator, bool approved) external;
