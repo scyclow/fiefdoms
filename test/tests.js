@@ -279,7 +279,7 @@ describe('Fiefdoms', () => {
 
   })
 
-  describe('batchMinting', () => {
+  describe('mintBatch', () => {
 
     it('should revert if not called by the minter', async () => {
       await expectRevert(
@@ -288,7 +288,7 @@ describe('Fiefdoms', () => {
       )
     })
 
-    it('should mint to the correct number of tokens to the correct address', async () => {
+    it('should mint to the correct number of tokens to the correct address, and assign the correct fiefdom number', async () => {
       await Fiefdoms.connect(overlord).mintBatch(vassal1.address, 10)
 
       await Promise.all(times(10, async i => {
@@ -298,6 +298,13 @@ describe('Fiefdoms', () => {
 
       expect(await Fiefdoms.connect(overlord).totalSupply()).to.equal(11)
       expect(await Fiefdoms.connect(overlord).balanceOf(vassal1.address)).to.equal(10)
+
+      const fiefdom10 = await Fiefdoms.connect(overlord).tokenIdToFiefdom(10)
+
+      const fiefdom10Contract = await FiefdomArchetypeFactory.attach(fiefdom10)
+
+      expect(await fiefdom10Contract.connect(vassal1).fiefdom()).to.equal(10)
+
     })
 
     it('should create a proxy fiefdom, linked to the token via tokenIdToFiefdom, for each token', async () => {

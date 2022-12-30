@@ -110,12 +110,12 @@ contract Fiefdoms is ERC721, Ownable {
 
 
     for (uint256 i; i < amount; i++) {
-      _mint(to, _totalSupply + i);
+      _mint(to, _totalSupply);
       FiefdomProxy proxy = new FiefdomProxy();
-      tokenIdToFiefdom[_totalSupply + i] = address(proxy);
+      tokenIdToFiefdom[_totalSupply] = address(proxy);
+      _totalSupply++;
     }
 
-    _totalSupply += amount;
   }
 
   function _transfer(
