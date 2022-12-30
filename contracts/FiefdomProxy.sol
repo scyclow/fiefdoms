@@ -3,11 +3,9 @@
 pragma solidity ^0.8.11;
 
 import "./Dependencies.sol";
+import "./Fiefdoms.sol";
 
-interface IParent {
-  function totalSupply() external view returns (uint256);
-  function fiefdomArchetype() external view returns (address);
-}
+
 contract FiefdomProxy is Proxy {
   bytes32 internal constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
@@ -31,14 +29,14 @@ contract FiefdomProxy is Proxy {
 
   // Defer all functionality to the given archetype contract
   constructor() {
-    address fiefdomArchetype = IParent(msg.sender).fiefdomArchetype();
-    uint256 parentTokenId = IParent(msg.sender).totalSupply();
+    address fiefdomArchetype = Fiefdoms(msg.sender).fiefdomArchetype();
+    uint256 fiefdomId = Fiefdoms(msg.sender).totalSupply();
     getAddressSlot(_IMPLEMENTATION_SLOT).value = fiefdomArchetype;
 
     // Invoke the preInitialize function on itself, as defined by the archetype contract
     Address.functionDelegateCall(
         fiefdomArchetype,
-        abi.encodeWithSignature("initialize(address,uint256)", msg.sender, parentTokenId),
+        abi.encodeWithSignature("initialize(address,uint256)", msg.sender, fiefdomId),
         "Address: low-level delegate call failed"
     );
   }

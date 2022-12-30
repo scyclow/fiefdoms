@@ -64,7 +64,7 @@ contract Fiefdoms is ERC721, Ownable {
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
   event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
-
+  event Activation(uint256 fiefdom);
 
   // SETUP
   constructor() ERC721('Fiefdoms', 'FIEF') {
@@ -116,7 +116,6 @@ contract Fiefdoms is ERC721, Ownable {
       tokenIdToFiefdom[_totalSupply] = address(proxy);
       _totalSupply++;
     }
-
   }
 
   function _transfer(
@@ -127,6 +126,11 @@ contract Fiefdoms is ERC721, Ownable {
     // When this token is transferred, also transfer ownership over its fiefdom
     FiefdomArchetype(tokenIdToFiefdom[tokenId]).transferOwnership(from, to);
     return super._transfer(from, to, tokenId);
+  }
+
+  function activation(uint256 tokenId) external {
+    require(tokenIdToFiefdom[tokenId] == msg.sender);
+    emit Activation(tokenId);
   }
 
   // ROYALTIES

@@ -45,13 +45,9 @@ import "./DefaultTokenURI.sol";
 import "./BaseTokenURI.sol";
 import "./ERC721Hooks.sol";
 import "./Dependencies.sol";
+import "./Fiefdoms.sol";
 
 pragma solidity ^0.8.11;
-
-interface IBaseContract {
-  function ownerOf(uint256 tokenId) external view returns (address owner);
-  function defaultTokenURIContract() external view returns (address tokenURIContract);
-}
 
 interface ITokenURI {
   function tokenURI(uint256 tokenId) external view returns (string memory uri);
@@ -60,7 +56,7 @@ interface ITokenURI {
 contract FiefdomArchetype is ERC721 {
   using Strings for uint256;
 
-  IBaseContract public kingdom;
+  Fiefdoms public kingdom;
   IERC721Hooks public erc721Hooks;
 
   bool public isActivated;
@@ -98,7 +94,7 @@ contract FiefdomArchetype is ERC721 {
     // Since constructor is not called (or called the first time with empty values)
     _name = string(abi.encodePacked('Fiefdom ', _fiefdomTokenId.toString()));
     _symbol = string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()));
-    kingdom = IBaseContract(_kingdom);
+    kingdom = Fiefdoms(_kingdom);
     fiefdom = _fiefdomTokenId;
     foundedAt = block.timestamp;
 
@@ -137,6 +133,7 @@ contract FiefdomArchetype is ERC721 {
 
     // Recover the 0th token
     _transfer(address(this), msg.sender, 0);
+    kingdom.activation(fiefdom);
   }
 
   function activateWitHooks(
