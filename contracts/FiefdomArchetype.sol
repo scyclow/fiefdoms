@@ -30,6 +30,7 @@ contract FiefdomArchetype is ERC721 {
   bool public isActivated;
   string public license;
   uint256 public maxSupply;
+  uint256 public foundedAt;
 
   string private _name;
   string private _symbol;
@@ -58,6 +59,7 @@ contract FiefdomArchetype is ERC721 {
     _symbol = string(abi.encodePacked('FIEF', _fiefdomTokenId.toString()));
     kingdom = IBaseContract(_kingdom);
     fiefdom = _fiefdomTokenId;
+    foundedAt = block.timestamp;
 
     _totalSupply = 1;
     _mint(address(this), 0);
@@ -67,6 +69,7 @@ contract FiefdomArchetype is ERC721 {
   function activate(
     string memory name_,
     string memory symbol_,
+    string memory license_,
     uint256 maxSupply_,
     address tokenURIContract_
   ) public onlyOwner {
@@ -88,7 +91,7 @@ contract FiefdomArchetype is ERC721 {
     // Set the tokenURI contract
     _tokenURIContract = tokenURIContract_;
 
-    license = 'CC BY-NC 4.0';
+    license = license_;
     isActivated = true;
 
     // Recover the 0th token
@@ -98,11 +101,12 @@ contract FiefdomArchetype is ERC721 {
   function activateWitHooks(
     string memory name_,
     string memory symbol_,
+    string memory license_,
     uint256 maxSupply_,
     address tokenURIContract_,
     address _erc721Hooks
   ) public onlyOwner {
-    activate(name_, symbol_, maxSupply_, tokenURIContract_);
+    activate(name_, symbol_, license_, maxSupply_, tokenURIContract_);
     erc721Hooks = IERC721Hooks(_erc721Hooks);
   }
 
@@ -171,15 +175,25 @@ contract FiefdomArchetype is ERC721 {
   }
 
 
-  function mintBatch(address[] calldata to, uint256 tokenIdStart, uint256 tokenIdEnd) external {
+  function mintBatch(address[] calldata to, uint256 tokenIdStart) external {
     require(minter == msg.sender, 'Caller is not the minting address');
 
-    uint256 amount = tokenIdEnd - tokenIdStart;
-    require(_totalSupply + amount <= maxSupply, 'Cannot create more fiefdoms');
-    require(to.length == amount, 'Invalid reciepients size');
+    uint256 amount = to.length;
+    require(_totalSupply + amount <= maxSupply, 'Cannot create more tokens');
 
-    for (uint i = 0; i < amount; i++) {
+    for (uint256 i; i < amount; i++) {
       _mint(to[i], tokenIdStart + i);
+    }
+
+    _totalSupply += amount;
+  }
+
+  function mintBatchTo(address to, uint256 amount, uint256 tokenIdStart) external {
+    require(minter == msg.sender, 'Caller is not the minting address');
+    require(_totalSupply + amount <= maxSupply, 'Cannot create more tokens');
+
+    for (uint256 i; i < amount; i++) {
+      _mint(to, tokenIdStart + i);
     }
 
     _totalSupply += amount;

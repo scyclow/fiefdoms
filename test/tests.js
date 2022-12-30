@@ -26,35 +26,37 @@ const getSVG = rawURI => b64Decode(JSON.parse(utf8Clean(rawURI)).image)
 
 
 
-let signers, overlord, operator, vassal1, vassal2
-let Fiefdoms, FiefdomsFactory, FiefdomArchetypeFactory, FiefdomArchetype
 
-async function setup () {
-  signers = await ethers.getSigners()
-  overlord = signers[0]
-  operator = signers[1]
-  vassal1 = signers[2]
-  vassal2 = signers[3]
-
-  FiefdomArchetypeFactory = await ethers.getContractFactory('FiefdomArchetype', overlord)
-
-  FiefdomsFactory = await ethers.getContractFactory('Fiefdoms', overlord)
-  Fiefdoms = await FiefdomsFactory.deploy()
-  await Fiefdoms.deployed()
-
-  FiefdomArchetype = await FiefdomArchetypeFactory.attach(
-    await Fiefdoms.connect(overlord).tokenIdToFiefdom(0)
-  )
-}
 
 const safeTransferFrom = 'safeTransferFrom(address,address,uint256)'
 const zeroAddr = '0x0000000000000000000000000000000000000000'
 const rndAddr = '0x1234000000000000000000000000000000000000'
+const theFuture = 2000000000
 
+let signers, overlord, operator, vassal1, vassal2
+let Fiefdoms, FiefdomsFactory, FiefdomArchetypeFactory, FiefdomArchetype
+let archetypeFounded
 
 describe('Fiefdoms', () => {
 
-  beforeEach(setup)
+  beforeEach(async () => {
+    signers = await ethers.getSigners()
+    overlord = signers[0]
+    operator = signers[1]
+    vassal1 = signers[2]
+    vassal2 = signers[3]
+
+    FiefdomArchetypeFactory = await ethers.getContractFactory('FiefdomArchetype', overlord)
+
+    FiefdomsFactory = await ethers.getContractFactory('Fiefdoms', overlord)
+    archetypeFounded = await time.latest()
+    Fiefdoms = await FiefdomsFactory.deploy()
+    await Fiefdoms.deployed()
+
+    FiefdomArchetype = await FiefdomArchetypeFactory.attach(
+      await Fiefdoms.connect(overlord).tokenIdToFiefdom(0)
+    )
+  })
 
   describe('happy path', () => {
 
@@ -108,22 +110,32 @@ describe('Fiefdoms', () => {
     it('should work', async () => {
       const beforeURI = await Fiefdoms.connect(overlord).tokenURI(0)
 
-      FiefdomArchetype.connect(overlord).activate('fiefdom 1', 'FIEF1', 100, zeroAddr)
+      FiefdomArchetype.connect(overlord).activate('fiefdom 0', 'FIEF0', 'CC BY-NC 4.0', 100, zeroAddr)
 
       const afterURI = await Fiefdoms.connect(overlord).tokenURI(0)
 
+      expect(getJsonURI(beforeURI).name).to.equal('Fiefdom Vassal #0')
+      expect(getJsonURI(beforeURI).description).to.equal('Unactivated Fiefdom Vassal #0 of ' + FiefdomArchetype.address.toLowerCase())
+      expect(getJsonURI(beforeURI).external_url).to.equal('https://steviep.xyz/fiefdoms')
       expect(getJsonURI(beforeURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal(false)
       expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Activated').value).to.equal(true)
       expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Fiefdom').value.toLowerCase()).to.equal(FiefdomArchetype.address.toLowerCase())
+      expect(getJsonURI(afterURI).attributes.find(attr => attr.trait_type === 'Founded At').value).to.be.closeTo(Number(archetypeFounded), 2)
+      expect(getJsonURI(afterURI).description).to.equal('Activated Fiefdom Vassal #0 of ' + FiefdomArchetype.address.toLowerCase())
 
 
+      await time.increaseTo(theFuture)
       await Fiefdoms.connect(overlord).mint(vassal1.address)
+
+      await time.increaseTo(theFuture*2)
       const fiefdomContract = await FiefdomArchetypeFactory.attach(
         await Fiefdoms.connect(overlord).tokenIdToFiefdom(1)
       )
 
       const fiefdom1URI = await Fiefdoms.connect(overlord).tokenURI(1)
+      expect(getJsonURI(fiefdom1URI).description).to.equal('Unactivated Fiefdom Vassal #1 of ' + fiefdomContract.address.toLowerCase())
       expect(getJsonURI(fiefdom1URI).attributes.find(attr => attr.trait_type === 'Fiefdom').value.toLowerCase()).to.equal(fiefdomContract.address.toLowerCase())
+      expect(getJsonURI(fiefdom1URI).attributes.find(attr => attr.trait_type === 'Founded At').value).to.be.closeTo(theFuture, 2)
 
       // console.log(beforeURI)
       // console.log(getSVG(beforeURI))
@@ -545,18 +557,20 @@ describe('Fiefdoms', () => {
         await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, 1)
         await Fiefdoms.connect(vassal2)[safeTransferFrom](vassal2.address, vassal1.address, 2)
 
-        await fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 123, rndAddr)
-        await fiefdom2Contract.connect(vassal1).activate('Newer Name', 'NEWER', 321, rndAddr)
+        await fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        await fiefdom2Contract.connect(vassal1).activate('Newer Name', 'NEWER', 'CC0', 321, rndAddr)
       })
 
-      it('should reset contract name/symbol, maxSupply, tokenURIContract', async () => {
+      it('should reset contract name/symbol, license, maxSupply, tokenURIContract', async () => {
         expect(await fiefdom1Contract.connect(vassal2).name()).to.equal('New Name')
         expect(await fiefdom1Contract.connect(vassal2).symbol()).to.equal('NEW')
+        expect(await fiefdom1Contract.connect(vassal2).license()).to.equal('CC BY-NC 4.0')
         expect(Number(await fiefdom1Contract.connect(vassal2).maxSupply())).to.equal(123)
         expect(await fiefdom1Contract.connect(vassal2).tokenURIContract()).to.equal(rndAddr)
 
         expect(await fiefdom2Contract.connect(vassal1).name()).to.equal('Newer Name')
         expect(await fiefdom2Contract.connect(vassal1).symbol()).to.equal('NEWER')
+        expect(await fiefdom2Contract.connect(vassal1).license()).to.equal('CC0')
         expect(Number(await fiefdom2Contract.connect(vassal1).maxSupply())).to.equal(321)
         expect(await fiefdom2Contract.connect(vassal1).tokenURIContract()).to.equal(rndAddr)
       })
@@ -575,7 +589,7 @@ describe('Fiefdoms', () => {
 
       it('should revert if called a second time', async () => {
         await expectRevert(
-          fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 123, rndAddr),
+          fiefdom1Contract.connect(vassal2).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr),
           'Fiefdom has already been activated'
         )
       })
@@ -588,7 +602,7 @@ describe('Fiefdoms', () => {
         )
 
         await expectRevert(
-          fiefdom3Contract.connect(overlord).activate('New Name', 'NEW', 123, rndAddr),
+          fiefdom3Contract.connect(overlord).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr),
           'Ownable: caller is not the owner'
         )
       })
@@ -613,29 +627,206 @@ describe('Fiefdoms', () => {
 
     })
 
-    describe('minting', () => {
+    describe('mint', () => {
+      it('should revert if not called by the minter', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
 
-      it('should revert if not called by the minter', async () => {})
+        await expectRevert(
+          fiefdom1Contract.connect(vassal2).mint(vassal2.address, 1),
+          'Caller is not the minting address'
+        )
+      })
 
-      it('should mint to the correct address', async () => {})
+      it('should allow minter to mint', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).setMinter(operator.address)
 
-      it('totalSupply/exists should work', async () => {})
+        await fiefdom1Contract.connect(operator).mint(vassal2.address, 1)
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdom())
+        await fiefdom1Contract.connect(operator).mint(vassal2.address, 2)
 
-      it('should not allow minting beyond the maxSupply', async () => {})
+      })
+
+      it('should mint to the correct address', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 1)
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 2)
+
+        expect(await fiefdom1Contract.connect(vassal1).totalSupply()).to.equal(3)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(1)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(2)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).balanceOf(vassal2.address)).to.equal(2)
+        expect(await fiefdom1Contract.connect(vassal1).exists(0)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(1)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(2)).to.equal(true)
+      })
 
 
+      it('should not allow minting beyond the maxSupply', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr)
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 1)
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 2)
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 3)
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 4)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).mint(vassal2.address, 5),
+          'Cannot create more tokens'
+        )
+      })
     })
 
-    describe('batch minting', () => {})
+    describe('mintBatch', () => {
+      it('should revert if not called by the minter', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal2).mintBatch([vassal2.address, vassal2.address], 1),
+          'Caller is not the minting address'
+        )
+      })
+
+      it('should allow minter to mint', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).setMinter(operator.address)
+
+        await fiefdom1Contract.connect(operator).mintBatch([vassal2.address, vassal2.address], 1)
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdom())
+        await fiefdom1Contract.connect(operator).mintBatch([vassal2.address, vassal2.address], 3)
+
+      })
+
+      it('should mint to the correct address', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).mintBatch([vassal2.address, vassal2.address, operator.address], 1)
+
+        expect(await fiefdom1Contract.connect(vassal1).totalSupply()).to.equal(4)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(1)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(2)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(3)).to.equal(operator.address)
+        expect(await fiefdom1Contract.connect(vassal1).balanceOf(vassal2.address)).to.equal(2)
+        expect(await fiefdom1Contract.connect(vassal1).balanceOf(operator.address)).to.equal(1)
+        expect(await fiefdom1Contract.connect(vassal1).exists(0)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(1)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(2)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(3)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(4)).to.equal(false)
+      })
+
+
+      it('should not allow minting beyond the maxSupply', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).mintBatch(times(5, () => vassal2.address), 1),
+          'Cannot create more tokens'
+        )
+      })
+
+      it('should not remint tokens', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 100, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 32)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).mintBatch(times(5, () => vassal2.address), 30),
+          'ERC721: token already minted'
+        )
+      })
+    })
+
+    describe('mintBatchTo', () => {
+      it('should revert if not called by the minter', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal2).mintBatchTo(vassal2.address, 5, 1),
+          'Caller is not the minting address'
+        )
+      })
+
+      it('should allow minter to mint', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+        fiefdom1Contract.connect(vassal1).setMinter(operator.address)
+
+        await fiefdom1Contract.connect(operator).mintBatchTo(vassal2.address, 10, 1)
+        await Fiefdoms.connect(vassal1)[safeTransferFrom](vassal1.address, vassal2.address, fiefdom1Contract.fiefdom())
+        await fiefdom1Contract.connect(operator).mintBatchTo(vassal2.address, 10, 11)
+
+      })
+
+      it('should mint to the correct address', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).mintBatchTo(vassal2.address, 3, 1)
+        await fiefdom1Contract.connect(vassal1).mintBatchTo(operator.address, 3, 4)
+
+        expect(await fiefdom1Contract.connect(vassal1).totalSupply()).to.equal(7)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(1)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(2)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(3)).to.equal(vassal2.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(4)).to.equal(operator.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(5)).to.equal(operator.address)
+        expect(await fiefdom1Contract.connect(vassal1).ownerOf(6)).to.equal(operator.address)
+        expect(await fiefdom1Contract.connect(vassal1).balanceOf(vassal2.address)).to.equal(3)
+        expect(await fiefdom1Contract.connect(vassal1).balanceOf(operator.address)).to.equal(3)
+        expect(await fiefdom1Contract.connect(vassal1).exists(0)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(1)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(2)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(3)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(4)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(5)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(6)).to.equal(true)
+        expect(await fiefdom1Contract.connect(vassal1).exists(7)).to.equal(false)
+      })
+
+
+      it('should not allow minting beyond the maxSupply', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 5, rndAddr)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).mintBatchTo(vassal2.address, 5, 1),
+          'Cannot create more tokens'
+        )
+      })
+
+      it('should not remint tokens', async () => {
+        fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 100, rndAddr)
+
+        await fiefdom1Contract.connect(vassal1).mint(vassal2.address, 32)
+
+        await expectRevert(
+          fiefdom1Contract.connect(vassal1).mintBatchTo(vassal2.address, 5, 30),
+          'ERC721: token already minted'
+        )
+      })
+    })
 
     describe('tokenURI', () => {
 
+      it('should work', async () => {
+
+        const tokenURI1 = await fiefdom1Contract.connect(vassal1).tokenURI(0)
+        const tokenURI2 = await fiefdom2Contract.connect(vassal1).tokenURI(0)
+        const tokenURI3 = await fiefdom1Contract.connect(vassal1).tokenURI(1)
+
+        expect(getJsonURI(tokenURI1).name).to.equal('Fiefdom 1, Token 0')
+        expect(getJsonURI(tokenURI2).name).to.equal('Fiefdom 2, Token 0')
+        expect(getJsonURI(tokenURI3).name).to.equal('Fiefdom 1, Token 1')
+        expect(getJsonURI(tokenURI1).description).to.equal('The start of something new.')
+
+        // console.log(getSVG(tokenURI1))
+      })
+
       it('should defer to the kingdom tokenURI contract before activation, or it set to 0x0', async () => {
         expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(await Fiefdoms.connect(vassal1).defaultTokenURIContract())
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
         expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(rndAddr)
         await fiefdom1Contract.connect(vassal1).setTokenURIContract(zeroAddr)
         expect(await fiefdom1Contract.connect(vassal1).tokenURIContract()).to.equal(await Fiefdoms.connect(vassal1).defaultTokenURIContract())
+
       })
 
     })
@@ -644,7 +835,7 @@ describe('Fiefdoms', () => {
     describe('setMinter', () => {
 
       it('should update the minting address', async () => {
-        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 123, rndAddr)
+        await fiefdom1Contract.connect(vassal1).activate('New Name', 'NEW', 'CC BY-NC 4.0', 123, rndAddr)
 
         await fiefdom1Contract.connect(vassal1).setMinter(vassal2.address)
         expect(await fiefdom1Contract.connect(vassal1).minter()).to.equal(vassal2.address)

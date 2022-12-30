@@ -18,7 +18,10 @@ contract BaseTokenURI {
   function tokenURI(uint256 tokenId) external view returns (string memory) {
     bytes memory name = abi.encodePacked('Fiefdom Vassal #', tokenId.toString());
     address fiefdomAddr = fiefdoms.tokenIdToFiefdom(tokenId);
+
     bool isActivated = FiefdomArchetype(fiefdomAddr).isActivated();
+    uint256 foundedAt = FiefdomArchetype(fiefdomAddr).foundedAt();
+
     string memory pColor = isActivated ? '#fff' : '#000';
     string memory sColor = isActivated ? '#000' : '#fff';
     string memory state = isActivated ? 'Activated' : 'Unactivated';
@@ -28,7 +31,9 @@ contract BaseTokenURI {
       isActivated ? 'true' : 'false',
       '},{"trait_type": "Fiefdom", "value": "0x',
       toString(fiefdomAddr),
-      '"}]'
+      '"},{"trait_type": "Founded At", "value": ',
+      foundedAt.toString(),
+      '}]'
     );
 
 
@@ -77,6 +82,7 @@ contract BaseTokenURI {
       'data:application/json;utf8,',
       '{"name": "', name,'",',
       '"description": ', description,
+      '"external_url": "https://steviep.xyz/fiefdoms",'
       '"image": ', encodedImage,
       '"attributes":', attributes,
       '}'
