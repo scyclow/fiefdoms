@@ -64,6 +64,7 @@ contract Fiefdoms is ERC721, Ownable {
   event ProjectEvent(address indexed poster, string indexed eventType, string content);
   event TokenEvent(address indexed poster, uint256 indexed tokenId, string indexed eventType, string content);
   event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
+  event MetadataUpdate(uint256 _tokenId);
   event Activation(uint256 fiefdom);
 
   // SETUP
@@ -130,6 +131,7 @@ contract Fiefdoms is ERC721, Ownable {
 
   function activation(uint256 tokenId) external {
     require(tokenIdToFiefdom[tokenId] == msg.sender);
+    emit MetadataUpdate(tokenId);
     emit Activation(tokenId);
   }
 
