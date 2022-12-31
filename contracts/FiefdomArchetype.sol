@@ -53,7 +53,7 @@ interface ITokenURI {
 
 /// @title Fiefdom Archetype
 /// @author steviep.eth, julien.eth
-/// @notice ERC721 collection contract controlled by the vassar that holds its corresponding fiefdom token
+/// @notice ERC721 collection contract controlled by the vassal that holds its corresponding fiefdom token
 contract FiefdomArchetype is ERC721Burnable {
   using Strings for uint256;
 

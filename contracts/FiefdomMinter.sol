@@ -13,11 +13,16 @@ contract FiefdomsMinter {
     fiefdomsKingdom = IFiefdomsKingdom(addr);
   }
 
-  function mintBatch(address to, uint256 amount) external {
+  /// @notice Mint a bunch of fiefdoms to an address
+  /// @param to Recipient address
+  /// @param amount Number of tokens to mint
+  function mintALot(address to, uint256 amount) external {
     fiefdomsKingdom.mintBatch(to, amount);
   }
 
-  function mint(address to) external {
+  /// @notice Mint a single fiefdom to an address
+  /// @param to Recipient address
+  function mintOne(address to) external {
     fiefdomsKingdom.mint(to);
   }
 }

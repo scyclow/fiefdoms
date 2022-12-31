@@ -42,7 +42,9 @@ import "./FiefdomArchetype.sol";
 
 pragma solidity ^0.8.17;
 
-
+/// @title Fiefdoms
+/// @author steviep.eth, julien.eth
+/// @notice ERC721 collection contract where ownership of a token grants the tooken holder ownership over a Fiefdom contract
 contract Fiefdoms is ERC721, Ownable {
   /// @notice License of Fiefdoms parent project - Does not pertain to the license of any tokens minted by Fiefdom contracts
   string public license = 'CC0';
